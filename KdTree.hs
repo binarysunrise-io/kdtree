@@ -4,7 +4,8 @@
 -- http://en.wikipedia.org/wiki/K-d_tree
 -- Translated by Issac Trotts
 
-import Data.List
+import qualified Data.Foldable as F
+import qualified Data.List as L
 
 import Test.QuickCheck
 import Test.QuickCheck.All
@@ -32,6 +33,16 @@ data KdTree point = KdNode { kdLeft :: KdTree point,
                   | KdEmpty
      deriving (Eq, Ord, Show)
 
+instance Functor KdTree where
+    fmap _ KdEmpty = KdEmpty
+    fmap f (KdNode l x r) = KdNode (fmap f l) (f x) (fmap f r)
+
+instance F.Foldable KdTree where
+    foldr f init KdEmpty = init
+    foldr f init (KdNode l x r) = F.foldr f init3 l
+	where 	init3 = f x init2
+		init2 = F.foldr f init r
+
 fromList :: Point p => [p] -> KdTree p
 fromList points = fromListWithDepth points 0
 
@@ -43,7 +54,7 @@ fromListWithDepth points depth = node
 
 	    -- Sort point list and choose median as pivot element
 	    sortedPoints =
-		sortBy (\a b -> coord axis a `compare` coord axis b) points
+		L.sortBy (\a b -> coord axis a `compare` coord axis b) points
 	    medianIndex = length sortedPoints `div` 2
 	
 	    -- Create node and construct subtrees
@@ -55,11 +66,16 @@ axisFromDepth :: Point p => p -> Int -> Int
 axisFromDepth p depth = depth `mod` k
     where k = dimension p
 
+-- toList :: KdTree p -> [p]
+-- toList KdEmpty = []
+-- toList (KdNode l p r) = toList l ++ [p] ++ toList r
 toList :: KdTree p -> [p]
-toList KdEmpty = []
-toList (KdNode l p r) = toList l ++ [p] ++ toList r
+toList t = F.foldr (:) [] t
 
--- |invariant tells whether the KD tree property holds for a given tree.
+-- Testing -----
+
+-- |invariant tells whether the KD tree property holds for a given tree and
+-- all its subtrees.
 -- Specifically, it tests that all points in the left subtree lie to the left
 -- of the plane, p is on the plane, and all points in the right subtree lie to
 -- the right.
@@ -77,8 +93,6 @@ invariant node = invariantWithDepth node 0
 		leftRecurse = invariantWithDepth l (depth + 1)
 		rightRecurse = invariantWithDepth r (depth + 1)
 
--- Testing -----
-
 instance Arbitrary Point3d where
     arbitrary = do
 	x <- arbitrary
@@ -90,7 +104,7 @@ prop_invariant :: [Point3d] -> Bool
 prop_invariant points = invariant . fromList $ points
 
 prop_samePoints :: [Point3d] -> Bool
-prop_samePoints points = sort points == (sort . toList . fromList $ points)
+prop_samePoints points = L.sort points == (L.sort . toList . fromList $ points)
 
 main = $quickCheckAll
 
