@@ -1,3 +1,6 @@
 KdTreeTest: KdTree.hs KdTreeTest.hs
-	ghc --make $@ && ./KdTreeTest
+	ghc --make $@
+
+test: KdTreeTest
+	./KdTreeTest
 
