@@ -5,7 +5,12 @@ Name:                KdTree
 -- standards guiding when and how versions should be incremented.
 Version:             0.1
 Synopsis:            KdTree, for efficient search in K-dimensional point clouds.
--- Description:         
+Description:         
+    This is a simple library for k-d trees in Haskell, based on the algorithms
+    at http://en.wikipedia.org/wiki/K-d_tree.
+
+    It enables efficient searching through collections of points in O(log N) time
+    (assuming randomly distributed points), using the nearestNeighbor function.
 
 Homepage:            https://github.com/ijt/kdtree
 License:             BSD3
@@ -15,20 +20,16 @@ Maintainer:          issac.trotts@gmail.com
 Copyright:           Copyright 2011, Issac Trotts
 Category:            Graphics
 Build-type:          Simple
+Cabal-version:       >=1.6
+Extra-source-files:  README
 
--- Extra files to be distributed with the package, such as examples or
--- a README.
--- Extra-source-files:  
-
--- Constraint on the version of Cabal needed to build this package.
-Cabal-version:       >=1.2
+source-repository head
+  type:     git
+  location: https://github.com/ijt/kdtree
 
 Library
   Exposed-modules: Data.Trees.KdTree
-  Build-depends: base  
-  
-  -- Modules not exported by this package.
-  -- Other-modules:       
+  Build-depends: base < 5
   
 Executable KdTreeTest
   Main-is: KdTreeTest.hs
