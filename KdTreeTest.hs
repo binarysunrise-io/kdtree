@@ -7,7 +7,7 @@ import qualified Data.List as L
 import Test.QuickCheck
 import Test.QuickCheck.All
 
-import KdTree
+import Data.Trees.KdTree
 
 -- |invariant tells whether the KD tree property holds for a given tree and
 -- all its subtrees.

@@ -1,4 +1,4 @@
-module KdTree where
+module Data.Trees.KdTree where
 
 -- Haskell implementation of http://en.wikipedia.org/wiki/K-d_tree
 -- by Issac Trotts
