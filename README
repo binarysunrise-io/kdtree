@@ -1,0 +1,21 @@
+This is a simple library for k-d trees in Haskell, based on the algorithms
+at http://en.wikipedia.org/wiki/K-d_tree.
+
+It enables efficient searching through collections of points in O(log N) time
+for randomly distributed points, using the nearestNeighbor function.
+
+Here is an example of an interactive session using this module:
+
+[ ~/haskell/KdTree ] ghci
+GHCi, version 7.0.3: http://www.haskell.org/ghc/  :? for help
+...
+Prelude> :m Data.Trees.KdTree 
+Prelude Data.Trees.KdTree> import Test.QuickCheck
+Prelude Data.Trees.KdTree Test.QuickCheck> points <- sample' arbitrary :: IO [Point3d]
+...
+Prelude Data.Trees.KdTree Test.QuickCheck> let tree = fromList points
+Prelude Data.Trees.KdTree Test.QuickCheck> nearestNeighbor tree (head points)
+Just (Point3d {p3x = 0.0, p3y = 0.0, p3z = 0.0})
+Prelude Data.Trees.KdTree Test.QuickCheck> head points
+Point3d {p3x = 0.0, p3y = 0.0, p3z = 0.0}
+

@@ -1,0 +1,36 @@
+Name:                KdTree
+
+-- The package version. See the Haskell package versioning policy
+-- (http://www.haskell.org/haskellwiki/Package_versioning_policy) for
+-- standards guiding when and how versions should be incremented.
+Version:             0.1
+Synopsis:            KdTree, for efficient search in K-dimensional point clouds.
+-- Description:         
+
+Homepage:            https://github.com/ijt/kdtree
+License:             BSD3
+License-file:        LICENSE
+Author:              Issac Trotts
+Maintainer:          issac.trotts@gmail.com
+Copyright:           Copyright 2011, Issac Trotts
+Category:            Graphics
+Build-type:          Simple
+
+-- Extra files to be distributed with the package, such as examples or
+-- a README.
+-- Extra-source-files:  
+
+-- Constraint on the version of Cabal needed to build this package.
+Cabal-version:       >=1.2
+
+Library
+  Exposed-modules: Data.Trees.KdTree
+  Build-depends: base  
+  
+  -- Modules not exported by this package.
+  -- Other-modules:       
+  
+Executable KdTreeTest
+  Main-is: KdTreeTest.hs
+  Build-depends: QuickCheck
+

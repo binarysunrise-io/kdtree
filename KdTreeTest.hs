@@ -9,28 +9,6 @@ import Test.QuickCheck.All
 
 import Data.Trees.KdTree
 
--- |invariant tells whether the KD tree property holds for a given tree and
--- all its subtrees.
--- Specifically, it tests that all points in the left subtree lie to the left
--- of the plane, p is on the plane, and all points in the right subtree lie to
--- the right.
-invariant :: Point p => KdTree p -> Bool
-invariant KdEmpty = True
-invariant (KdNode l p r axis) = leftIsGood && rightIsGood
-    where x = coord axis p
-	  leftIsGood = all ((<= x) . coord axis) (toList l)
-	  rightIsGood = all ((>= x) . coord axis) (toList r)
-
-invariant' :: Point p => KdTree p -> Bool
-invariant' = all invariant . subtrees
-
-instance Arbitrary Point3d where
-    arbitrary = do
-	x <- arbitrary
-	y <- arbitrary
-	z <- arbitrary
-	return (Point3d x y z)
-
 prop_invariant :: [Point3d] -> Bool
 prop_invariant points = invariant' . fromList $ points
 

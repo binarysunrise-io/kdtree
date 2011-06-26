@@ -7,6 +7,7 @@ import Data.Maybe
 
 import qualified Data.Foldable as F
 import qualified Data.List as L
+import Test.QuickCheck
 
 class Point p where
       -- |dimension returns the number of coordinates of a point.
@@ -100,4 +101,25 @@ nearestNeighbor (KdNode l p r axis) probe =
 				    else candidates1 in
 		Just . L.minimumBy (compareDistance probe) $ candidates2
 
+-- |invariant tells whether the KD tree property holds for a given tree and
+-- all its subtrees.
+-- Specifically, it tests that all points in the left subtree lie to the left
+-- of the plane, p is on the plane, and all points in the right subtree lie to
+-- the right.
+invariant :: Point p => KdTree p -> Bool
+invariant KdEmpty = True
+invariant (KdNode l p r axis) = leftIsGood && rightIsGood
+    where x = coord axis p
+	  leftIsGood = all ((<= x) . coord axis) (toList l)
+	  rightIsGood = all ((>= x) . coord axis) (toList r)
+
+invariant' :: Point p => KdTree p -> Bool
+invariant' = all invariant . subtrees
+
+instance Arbitrary Point3d where
+    arbitrary = do
+	x <- arbitrary
+	y <- arbitrary
+	z <- arbitrary
+	return (Point3d x y z)
 
