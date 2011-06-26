@@ -6,11 +6,9 @@ Name:                KdTree
 Version:             0.1
 Synopsis:            KdTree, for efficient search in K-dimensional point clouds.
 Description:         
-    This is a simple library for k-d trees in Haskell, based on the algorithms
-    at http://en.wikipedia.org/wiki/K-d_tree.
-
-    It enables efficient searching through collections of points in O(log N) time
-    (assuming randomly distributed points), using the nearestNeighbor function.
+    This is a simple library for k-d trees in Haskell. It enables efficient
+    searching through collections of points in O(log N) time on average,
+    using the nearestNeighbor function.
 
 Homepage:            https://github.com/ijt/kdtree
 License:             BSD3
