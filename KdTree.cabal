@@ -23,7 +23,7 @@ Extra-source-files:  README
 
 source-repository head
   type:     git
-  location: https://github.com/ijt/kdtree
+  location: git@github.com:ijt/kdtree.git
 
 Library
   Exposed-modules: Data.Trees.KdTree
