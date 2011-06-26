@@ -29,17 +29,18 @@ instance Point Point3d where
 
 data KdTree point = KdNode { kdLeft :: KdTree point,
 			     kdPoint :: point,
-                             kdRight :: KdTree point }
+                             kdRight :: KdTree point,
+			     kdAxis :: Int }
                   | KdEmpty
      deriving (Eq, Ord, Show)
 
 instance Functor KdTree where
     fmap _ KdEmpty = KdEmpty
-    fmap f (KdNode l x r) = KdNode (fmap f l) (f x) (fmap f r)
+    fmap f (KdNode l x r axis) = KdNode (fmap f l) (f x) (fmap f r) axis
 
 instance F.Foldable KdTree where
     foldr f init KdEmpty = init
-    foldr f init (KdNode l x r) = F.foldr f init3 l
+    foldr f init (KdNode l x r _) = F.foldr f init3 l
 	where 	init3 = f x init2
 		init2 = F.foldr f init r
 
@@ -60,17 +61,19 @@ fromListWithDepth points depth = node
 	    -- Create node and construct subtrees
 	    node = KdNode { kdLeft = fromListWithDepth (take medianIndex sortedPoints) (depth+1),
 			    kdPoint = sortedPoints !! medianIndex,
-			    kdRight = fromListWithDepth (drop (medianIndex+1) sortedPoints) (depth+1) }
+			    kdRight = fromListWithDepth (drop (medianIndex+1) sortedPoints) (depth+1),
+			    kdAxis = axis }
 
 axisFromDepth :: Point p => p -> Int -> Int
 axisFromDepth p depth = depth `mod` k
     where k = dimension p
 
--- toList :: KdTree p -> [p]
--- toList KdEmpty = []
--- toList (KdNode l p r) = toList l ++ [p] ++ toList r
 toList :: KdTree p -> [p]
 toList t = F.foldr (:) [] t
+
+subtrees :: KdTree p -> [KdTree p]
+subtrees KdEmpty = [KdEmpty]
+subtrees t@(KdNode l x r axis) = subtrees l ++ [t] ++ subtrees r
 
 -- Testing -----
 
@@ -80,18 +83,14 @@ toList t = F.foldr (:) [] t
 -- of the plane, p is on the plane, and all points in the right subtree lie to
 -- the right.
 invariant :: Point p => KdTree p -> Bool
-invariant node = invariantWithDepth node 0
-    where
-	invariantWithDepth KdEmpty _ = True
-	invariantWithDepth (KdNode l p r) depth =
-	    leftIsGood && rightIsGood && leftRecurse && rightRecurse
-	    where
-		axis = axisFromDepth p depth
-		x = coord axis p
-		leftIsGood = all ((<= x) . coord axis) (toList l)
-		rightIsGood = all ((>= x) . coord axis) (toList r)
-		leftRecurse = invariantWithDepth l (depth + 1)
-		rightRecurse = invariantWithDepth r (depth + 1)
+invariant KdEmpty = True
+invariant (KdNode l p r axis) = leftIsGood && rightIsGood
+    where x = coord axis p
+	  leftIsGood = all ((<= x) . coord axis) (toList l)
+	  rightIsGood = all ((>= x) . coord axis) (toList r)
+
+invariant' :: Point p => KdTree p -> Bool
+invariant' = all invariant . subtrees
 
 instance Arbitrary Point3d where
     arbitrary = do
@@ -101,7 +100,7 @@ instance Arbitrary Point3d where
 	return (Point3d x y z)
 
 prop_invariant :: [Point3d] -> Bool
-prop_invariant points = invariant . fromList $ points
+prop_invariant points = invariant' . fromList $ points
 
 prop_samePoints :: [Point3d] -> Bool
 prop_samePoints points = L.sort points == (L.sort . toList . fromList $ points)
