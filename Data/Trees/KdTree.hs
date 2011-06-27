@@ -80,18 +80,21 @@ axisFromDepth p depth = depth `mod` k
 toList :: KdTree p -> [p]
 toList t = F.foldr (:) [] t
 
+-- |subtrees t returns a list containing t and all its subtrees, including the
+-- empty leaf nodes.
 subtrees :: KdTree p -> [KdTree p]
 subtrees KdEmpty = [KdEmpty]
 subtrees t@(KdNode l x r axis) = subtrees l ++ [t] ++ subtrees r
 
+-- |nearestNeighbor tree p returns the nearest neighbor of p in tree.
 nearestNeighbor :: Point p => KdTree p -> p -> Maybe p
 nearestNeighbor KdEmpty probe = Nothing
 nearestNeighbor (KdNode KdEmpty p KdEmpty _) probe = Just p
 nearestNeighbor (KdNode l p r axis) probe =
-    if xProbe <= xp then doStuff l r else doStuff r l
+    if xProbe <= xp then findNearest l r else findNearest r l
     where xProbe = coord axis probe
           xp = coord axis p
-          doStuff tree1 tree2 =
+          findNearest tree1 tree2 =
                 let candidates1 = case nearestNeighbor tree1 probe of
                                     Nothing -> [p]
                                     Just best1 -> [best1, p]
@@ -101,8 +104,7 @@ nearestNeighbor (KdNode l p r axis) probe =
                                     else candidates1 in
                 Just . L.minimumBy (compareDistance probe) $ candidates2
 
--- |invariant tells whether the K-D tree property holds for a given tree and
--- all its subtrees.
+-- |invariant tells whether the K-D tree property holds for a given tree.
 -- Specifically, it tests that all points in the left subtree lie to the left
 -- of the plane, p is on the plane, and all points in the right subtree lie to
 -- the right.
@@ -113,7 +115,8 @@ invariant (KdNode l p r axis) = leftIsGood && rightIsGood
           leftIsGood = all ((<= x) . coord axis) (toList l)
           rightIsGood = all ((>= x) . coord axis) (toList r)
 
--- |invariant' tells whether the K-D tree property holds for all subtrees.
+-- |invariant' tells whether the K-D tree property holds for the given tree and
+-- all subtrees.
 invariant' :: Point p => KdTree p -> Bool
 invariant' = all invariant . subtrees
 
