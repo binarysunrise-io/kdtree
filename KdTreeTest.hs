@@ -42,5 +42,10 @@ prop_removeReallyRemovesPoints points = points /= [] ==>
     L.sort (Kd.toList (tree `Kd.remove` (head points))) == L.sort (tail points)
     where tree = Kd.fromList points
 
+prop_removePreservesInvariant :: [Kd.Point3d] -> Kd.Point3d -> Bool
+prop_removePreservesInvariant points pKill =
+    Kd.invariant' $ tree `Kd.remove` pKill
+    where tree = Kd.fromList points
+
 main = $quickCheckAll
 
