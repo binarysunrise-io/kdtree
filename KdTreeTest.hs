@@ -20,16 +20,22 @@ prop_nearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Bool
 prop_nearestNeighbor points probe =
     Kd.nearestNeighbor tree probe == bruteNearestNeighbor points probe
     where tree = Kd.fromList points
+          bruteNearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Maybe Kd.Point3d
+          bruteNearestNeighbor [] _ = Nothing
+          bruteNearestNeighbor points probe =
+              Just . head . L.sortBy (Kd.compareDistance probe) $ points
 
 prop_pointsAreClosestToThemselves :: [Kd.Point3d] -> Bool
 prop_pointsAreClosestToThemselves points =
     map Just points == map (Kd.nearestNeighbor tree) points
     where tree = Kd.fromList points
 
-bruteNearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Maybe Kd.Point3d
-bruteNearestNeighbor [] _ = Nothing
-bruteNearestNeighbor points probe =
-    Just . head . L.sortBy (Kd.compareDistance probe) $ points
+prop_kNearestNeighborsMatchesBrute :: [Kd.Point3d] -> Int -> Kd.Point3d -> Bool
+prop_kNearestNeighborsMatchesBrute points k p =
+    L.sort (Kd.kNearestNeighbors tree k p) == L.sort (bruteKnearestNeighbors points k p)
+    where tree = Kd.fromList points
+          bruteKnearestNeighbors points k p =
+            take k . L.sortBy (Kd.compareDistance p) $ points
 
 main = $quickCheckAll
 
