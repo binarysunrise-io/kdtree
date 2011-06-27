@@ -60,7 +60,7 @@ fromList points = fromListWithDepth points 0
 fromListWithDepth :: Point p => [p] -> Int -> KdTree p
 fromListWithDepth [] _ = KdEmpty
 fromListWithDepth points depth = node
-    where   axis = axisFromDepth (head points) depth
+    where   axis = depth `mod` dimension (head points) 
 
             -- Sort point list and choose median as pivot element
             sortedPoints =
@@ -72,10 +72,6 @@ fromListWithDepth points depth = node
                             kdPoint = sortedPoints !! medianIndex,
                             kdRight = fromListWithDepth (drop (medianIndex+1) sortedPoints) (depth+1),
                             kdAxis = axis }
-
-axisFromDepth :: Point p => p -> Int -> Int
-axisFromDepth p depth = depth `mod` k
-    where k = dimension p
 
 toList :: KdTree p -> [p]
 toList t = F.foldr (:) [] t
