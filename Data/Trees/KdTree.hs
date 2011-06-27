@@ -100,21 +100,21 @@ nearestNeighbor (KdNode l p r axis) probe =
                                     else candidates1 in
                 Just . L.minimumBy (compareDistance probe) $ candidates2
 
--- |invariant tells whether the K-D tree property holds for a given tree.
+-- |isValid tells whether the K-D tree property holds for a given tree.
 -- Specifically, it tests that all points in the left subtree lie to the left
 -- of the plane, p is on the plane, and all points in the right subtree lie to
 -- the right.
-invariant :: Point p => KdTree p -> Bool
-invariant KdEmpty = True
-invariant (KdNode l p r axis) = leftIsGood && rightIsGood
+isValid :: Point p => KdTree p -> Bool
+isValid KdEmpty = True
+isValid (KdNode l p r axis) = leftIsGood && rightIsGood
     where x = coord axis p
           leftIsGood = all ((<= x) . coord axis) (toList l)
           rightIsGood = all ((>= x) . coord axis) (toList r)
 
--- |invariant' tells whether the K-D tree property holds for the given tree and
--- all subtrees.
-invariant' :: Point p => KdTree p -> Bool
-invariant' = all invariant . subtrees
+-- |allSubtreesAreValid tells whether the K-D tree property holds for the given
+-- tree and all subtrees.
+allSubtreesAreValid :: Point p => KdTree p -> Bool
+allSubtreesAreValid = all isValid . subtrees
 
 kNearestNeighbors :: (Eq p, Point p) => KdTree p -> Int -> p -> [p]
 kNearestNeighbors KdEmpty _ _ = []

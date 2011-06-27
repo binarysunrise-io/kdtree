@@ -10,11 +10,13 @@ import Test.QuickCheck.All
 
 import qualified Data.Trees.KdTree as Kd
 
-prop_invariant :: [Kd.Point3d] -> Bool
-prop_invariant points = Kd.invariant' . Kd.fromList $ points
+prop_constructionProducesValidTrees :: [Kd.Point3d] -> Bool
+prop_constructionProducesValidTrees points =
+    Kd.allSubtreesAreValid . Kd.fromList $ points
 
 prop_samePoints :: [Kd.Point3d] -> Bool
-prop_samePoints points = L.sort points == (L.sort . Kd.toList . Kd.fromList $ points)
+prop_samePoints points =
+    L.sort points == (L.sort . Kd.toList . Kd.fromList $ points)
 
 prop_nearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Bool
 prop_nearestNeighbor points probe =
@@ -44,7 +46,7 @@ prop_removeReallyRemovesPoints points = points /= [] ==>
 
 prop_removePreservesInvariant :: [Kd.Point3d] -> Kd.Point3d -> Bool
 prop_removePreservesInvariant points pKill =
-    Kd.invariant' $ tree `Kd.remove` pKill
+    Kd.allSubtreesAreValid $ tree `Kd.remove` pKill
     where tree = Kd.fromList points
 
 main = $quickCheckAll
