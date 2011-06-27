@@ -1,7 +1,6 @@
-module Data.Trees.KdTree where
+-- http://en.wikipedia.org/wiki/K-d_tree
 
--- Haskell implementation of http://en.wikipedia.org/wiki/K-d_tree
--- by Issac Trotts
+module Data.Trees.KdTree where
 
 import Data.Maybe
 
@@ -60,18 +59,18 @@ fromList points = fromListWithDepth points 0
 fromListWithDepth :: Point p => [p] -> Int -> KdTree p
 fromListWithDepth [] _ = KdEmpty
 fromListWithDepth points depth = node
-    where   axis = depth `mod` dimension (head points) 
+    where axis = depth `mod` dimension (head points) 
 
-            -- Sort point list and choose median as pivot element
-            sortedPoints =
-                L.sortBy (\a b -> coord axis a `compare` coord axis b) points
-            medianIndex = length sortedPoints `div` 2
+          -- Sort point list and choose median as pivot element
+          sortedPoints =
+              L.sortBy (\a b -> coord axis a `compare` coord axis b) points
+          medianIndex = length sortedPoints `div` 2
         
-            -- Create node and construct subtrees
-            node = KdNode { kdLeft = fromListWithDepth (take medianIndex sortedPoints) (depth+1),
-                            kdPoint = sortedPoints !! medianIndex,
-                            kdRight = fromListWithDepth (drop (medianIndex+1) sortedPoints) (depth+1),
-                            kdAxis = axis }
+          -- Create node and construct subtrees
+          node = KdNode { kdLeft = fromListWithDepth (take medianIndex sortedPoints) (depth+1),
+                          kdPoint = sortedPoints !! medianIndex,
+                          kdRight = fromListWithDepth (drop (medianIndex+1) sortedPoints) (depth+1),
+                          kdAxis = axis }
 
 toList :: KdTree p -> [p]
 toList t = F.foldr (:) [] t
@@ -116,6 +115,7 @@ isValid (KdNode l p r axis) = leftIsGood && rightIsGood
 allSubtreesAreValid :: Point p => KdTree p -> Bool
 allSubtreesAreValid = all isValid . subtrees
 
+-- |kNearestNeighbors tree k p returns the k closest points to p within tree.
 kNearestNeighbors :: (Eq p, Point p) => KdTree p -> Int -> p -> [p]
 kNearestNeighbors KdEmpty _ _ = []
 kNearestNeighbors _ k _ | k <= 0 = []
@@ -123,6 +123,7 @@ kNearestNeighbors tree k probe = nearest : kNearestNeighbors tree' (k-1) probe
     where nearest = fromJust $ nearestNeighbor tree probe
           tree' = tree `remove` nearest
 
+-- |remove t p removes the point p from t.
 remove :: (Eq p, Point p) => KdTree p -> p -> KdTree p
 remove KdEmpty _ = KdEmpty
 remove (KdNode l p r axis) pKill =
