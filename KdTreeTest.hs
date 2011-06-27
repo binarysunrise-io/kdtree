@@ -37,5 +37,10 @@ prop_kNearestNeighborsMatchesBrute points k p =
           bruteKnearestNeighbors points k p =
             take k . L.sortBy (Kd.compareDistance p) $ points
 
+prop_removeReallyRemovesPoints :: [Kd.Point3d] -> Property
+prop_removeReallyRemovesPoints points = points /= [] ==>
+    L.sort (Kd.toList (tree `Kd.remove` (head points))) == L.sort (tail points)
+    where tree = Kd.fromList points
+
 main = $quickCheckAll
 
