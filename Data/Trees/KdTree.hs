@@ -55,7 +55,8 @@ instance F.Foldable KdTree where
 fromList :: Point p => [p] -> KdTree p
 fromList points = fromListWithDepth points 0
 
--- Select axis based on depth so that axis cycles through all valid values
+-- |fromListWithDepth selects an axis based on depth so that the axis cycles
+-- through all valid values.
 fromListWithDepth :: Point p => [p] -> Int -> KdTree p
 fromListWithDepth [] _ = KdEmpty
 fromListWithDepth points depth = node
