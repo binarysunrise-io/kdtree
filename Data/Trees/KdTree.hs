@@ -100,6 +100,24 @@ nearestNeighbor (KdNode l p r axis) probe =
                                     else candidates1 in
                 Just . L.minimumBy (compareDistance probe) $ candidates2
 
+  -- |nearNeighbors tree p returns all neighbors within distance r from p in tree.
+nearNeighbors :: Point p => KdTree p -> Double -> p -> [p]
+nearNeighbors KdEmpty radius probe                      = []
+nearNeighbors (KdNode KdEmpty p KdEmpty _) radius probe = if dist2 p probe <= radius^2 then [p] else []
+nearNeighbors (KdNode l p r axis) radius probe          =
+    if xProbe <= xp
+      then let nearest = maybePivot ++ nearNeighbors l radius probe
+           in if xProbe + abs radius > xp
+                then nearNeighbors r radius probe ++ nearest
+                else nearest
+      else let nearest = maybePivot ++ nearNeighbors r radius probe
+           in if xProbe - abs radius < xp
+                then nearNeighbors l radius probe ++ nearest
+                else nearest
+  where xProbe     = coord axis probe
+        xp         = coord axis p
+        maybePivot = if dist2 probe p <= radius^2 then [p] else []
+
 -- |isValid tells whether the K-D tree property holds for a given tree.
 -- Specifically, it tests that all points in the left subtree lie to the left
 -- of the plane, p is on the plane, and all points in the right subtree lie to
