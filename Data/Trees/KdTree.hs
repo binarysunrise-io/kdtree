@@ -100,7 +100,7 @@ nearestNeighbor (KdNode l p r axis) probe =
                                     else candidates1 in
                 Just . L.minimumBy (compareDistance probe) $ candidates2
 
-  -- |nearNeighbors tree p returns all neighbors within distance r from p in tree.
+-- |nearNeighbors tree p returns all neighbors within distance r from p in tree.
 nearNeighbors :: Point p => KdTree p -> Double -> p -> [p]
 nearNeighbors KdEmpty radius probe                      = []
 nearNeighbors (KdNode KdEmpty p KdEmpty _) radius probe = if dist2 p probe <= radius^2 then [p] else []
