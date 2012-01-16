@@ -20,12 +20,23 @@ prop_samePoints points =
 
 prop_nearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Bool
 prop_nearestNeighbor points probe =
-    Kd.nearestNeighbor tree probe == bruteNearestNeighbor points probe
+    Kd.nearestNeighbor tree probe == bruteNearestNeighbor points probe 
     where tree = Kd.fromList points
           bruteNearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Maybe Kd.Point3d
           bruteNearestNeighbor [] _ = Nothing
           bruteNearestNeighbor points probe =
               Just . head . L.sortBy (Kd.compareDistance probe) $ points
+
+prop_nearNeighbors :: [Kd.Point3d] -> Kd.Point3d -> Double -> Bool
+prop_nearNeighbors points probe radius =
+    (L.sort (Kd.nearNeighbors   tree   radius probe) ==
+     L.sort (bruteNearNeighbors points radius probe))
+    where tree = Kd.fromList points
+          bruteNearNeighbors :: [Kd.Point3d] -> Double -> Kd.Point3d -> [Kd.Point3d]
+          bruteNearNeighbors []     radius _     = []
+          bruteNearNeighbors points radius probe =
+              filter (withinDistance probe radius) points
+          withinDistance probe radius point = Kd.dist2 probe point <= radius^2
 
 prop_pointsAreClosestToThemselves :: [Kd.Point3d] -> Bool
 prop_pointsAreClosestToThemselves points =
