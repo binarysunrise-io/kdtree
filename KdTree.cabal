@@ -3,7 +3,7 @@ Name:                KdTree
 -- The package version. See the Haskell package versioning policy
 -- (http://www.haskell.org/haskellwiki/Package_versioning_policy) for
 -- standards guiding when and how versions should be incremented.
-Version:             0.2.1
+Version:             0.3.1
 Synopsis:            KdTree, for efficient search in K-dimensional point clouds.
 Description:         
     This is a simple library for k-d trees in Haskell. It enables
@@ -14,11 +14,11 @@ Homepage:            https://github.com/ijt/kdtree
 License:             BSD3
 License-file:        LICENSE
 Author:              Issac Trotts
-Maintainer:          issac.trotts@gmail.com
+Maintainer:          michael@schmong.org
 Copyright:           Copyright 2011, Issac Trotts
 Category:            Graphics
 Build-type:          Simple
-Cabal-version:       >=1.6
+Cabal-version:       >=1.22
 Extra-source-files:  README
 
 source-repository head
@@ -26,10 +26,17 @@ source-repository head
   location: git@github.com:ijt/kdtree.git
 
 Library
-  Exposed-modules: Data.Trees.KdTree
-  Build-depends: base < 5
+  default-language: Haskell2010
+  ghc-options: -Wall -Werror -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
+  Exposed-modules: Data.Trees.KdTree.Points.KdTree
+  Build-depends:  base >= 4.8 && < 5
+                , AC-Vector >= 2.3.0
+                , QuickCheck
   
-Executable KdTreeTest
-  Main-is: KdTreeTest.hs
-  Build-depends: QuickCheck
+Test-suite KdTreeTest
+  Type:             exitcode-stdio-1.0
+  Main-is:          KdTreeTest.hs
+  Default-language: Haskell2010
+  Build-depends:    base >= 4.8 && < 5
+                  , QuickCheck
 

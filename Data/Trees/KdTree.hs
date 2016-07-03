@@ -18,7 +18,7 @@ class Point p where
       -- |dist2 returns the squared distance between two points.
       dist2 :: p -> p -> Double
       dist2 a b = sum . map diff2 $ [0..dimension a - 1]
-        where diff2 i = (coord i a - coord i b)^2
+        where diff2 i = (coord i a - coord i b) ^ (2 :: Int)
 
 -- |compareDistance p a b  compares the distances of a and b to p.
 compareDistance :: (Point p) => p -> p -> p -> Ordering
@@ -33,7 +33,7 @@ instance Point Point3d where
     coord 0 p = p3x p
     coord 1 p = p3y p
     coord 2 p = p3z p
-
+    coord _ _ = error "should never happen"
 
 data KdTree point = KdNode { kdLeft :: KdTree point,
                              kdPoint :: point,
@@ -47,10 +47,10 @@ instance Functor KdTree where
     fmap f (KdNode l x r axis) = KdNode (fmap f l) (f x) (fmap f r) axis
 
 instance F.Foldable KdTree where
-    foldr f init KdEmpty = init
-    foldr f init (KdNode l x r _) = F.foldr f init3 l
+    foldr _ init' KdEmpty = init'
+    foldr f init' (KdNode l x r _) = F.foldr f init3 l
         where init3 = f x init2
-              init2 = F.foldr f init r
+              init2 = F.foldr f init' r
 
 fromList :: Point p => [p] -> KdTree p
 fromList points = fromListWithDepth points 0
@@ -80,12 +80,12 @@ toList t = F.foldr (:) [] t
 -- empty leaf nodes.
 subtrees :: KdTree p -> [KdTree p]
 subtrees KdEmpty = [KdEmpty]
-subtrees t@(KdNode l x r axis) = subtrees l ++ [t] ++ subtrees r
+subtrees t@(KdNode l _ r _) = subtrees l ++ [t] ++ subtrees r
 
 -- |nearestNeighbor tree p returns the nearest neighbor of p in tree.
 nearestNeighbor :: Point p => KdTree p -> p -> Maybe p
-nearestNeighbor KdEmpty probe = Nothing
-nearestNeighbor (KdNode KdEmpty p KdEmpty _) probe = Just p
+nearestNeighbor KdEmpty _ = Nothing
+nearestNeighbor (KdNode KdEmpty p KdEmpty _) _ = Just p
 nearestNeighbor (KdNode l p r axis) probe =
     if xProbe <= xp then findNearest l r else findNearest r l
     where xProbe = coord axis probe
@@ -94,7 +94,7 @@ nearestNeighbor (KdNode l p r axis) probe =
                 let candidates1 = case nearestNeighbor tree1 probe of
                                     Nothing -> [p]
                                     Just best1 -> [best1, p]
-                    sphereIntersectsPlane = (xProbe - xp)^2 <= dist2 probe p
+                    sphereIntersectsPlane = (xProbe - xp) ^ (2 :: Int) <= dist2 probe p
                     candidates2 = if sphereIntersectsPlane
                                     then candidates1 ++ maybeToList (nearestNeighbor tree2 probe)
                                     else candidates1 in
@@ -102,8 +102,8 @@ nearestNeighbor (KdNode l p r axis) probe =
 
 -- |nearNeighbors tree p returns all neighbors within distance r from p in tree.
 nearNeighbors :: Point p => KdTree p -> Double -> p -> [p]
-nearNeighbors KdEmpty radius probe                      = []
-nearNeighbors (KdNode KdEmpty p KdEmpty _) radius probe = if dist2 p probe <= radius^2 then [p] else []
+nearNeighbors KdEmpty _ _                               = []
+nearNeighbors (KdNode KdEmpty p KdEmpty _) radius probe = if dist2 p probe <= radius ^ (2 :: Int) then [p] else []
 nearNeighbors (KdNode l p r axis) radius probe          =
     if xProbe <= xp
       then let nearest = maybePivot ++ nearNeighbors l radius probe
@@ -116,7 +116,7 @@ nearNeighbors (KdNode l p r axis) radius probe          =
                 else nearest
   where xProbe     = coord axis probe
         xp         = coord axis p
-        maybePivot = if dist2 probe p <= radius^2 then [p] else []
+        maybePivot = if dist2 probe p <= radius ^ (2 :: Int) then [p] else []
 
 -- |isValid tells whether the K-D tree property holds for a given tree.
 -- Specifically, it tests that all points in the left subtree lie to the left
