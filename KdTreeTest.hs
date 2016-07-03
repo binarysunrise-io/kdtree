@@ -8,7 +8,7 @@ import qualified Data.List as L
 import Test.QuickCheck
 import Test.QuickCheck.All
 
-import qualified Data.Trees.KdTree as Kd
+import qualified Data.Trees.KdTree.Points.KdTree as Kd
 
 prop_constructionProducesValidTrees :: [Kd.Point3d] -> Bool
 prop_constructionProducesValidTrees points =
@@ -60,5 +60,6 @@ prop_removePreservesInvariant points pKill =
     Kd.allSubtreesAreValid $ tree `Kd.remove` pKill
     where tree = Kd.fromList points
 
+return []
 main = $quickCheckAll
 
