@@ -1,0 +1,17 @@
+resolver: ghc-7.10.3
+
+packages:
+- '.'
+
+extra-deps:
+- QuickCheck-2.8.2
+- primitive-0.6.1.0
+- random-1.1
+- tf-random-0.5
+
+# Override default flag values for local packages and extra-deps
+flags: {}
+
+# Extra package databases containing global packages
+extra-package-dbs: []
+

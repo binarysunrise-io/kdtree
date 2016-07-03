@@ -26,10 +26,15 @@ source-repository head
   location: git@github.com:binarysunrise-io/kdtree.git
 
 Library
-  Exposed-modules: Data.Trees.KdTree
-  Build-depends: base < 5
+  Exposed-modules:  Data.Trees.KdTree
+  Build-depends:    base < 5
+                 ,  QuickCheck
   
-Executable KdTreeTest
-  Main-is: KdTreeTest.hs
-  Build-depends: QuickCheck
+Test-suite KdTreeTest
+  Type:             exitcode-stdio-1.0
+  Main-is:          KdTreeTest.hs
+  Default-language: Haskell2010
+  other-modules:    Data.Trees.KdTree
 
+  Build-depends:    base >= 4.8 && < 5
+                  , QuickCheck
