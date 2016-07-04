@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Main where
+module Points.KdTreeTest where
 
 import Data.Maybe
 import qualified Data.List as L
@@ -8,11 +8,13 @@ import qualified Data.List as L
 import Test.QuickCheck
 import Test.QuickCheck.All
 
-import qualified Data.Trees.KdTree as Kd
+import qualified Data.Trees.KdTree.Points.Internal as Kd
+
+import Points.Internal
 
 prop_constructionProducesValidTrees :: [Kd.Point3d] -> Bool
 prop_constructionProducesValidTrees points =
-    Kd.allSubtreesAreValid . Kd.fromList $ points
+    allSubtreesAreValid . Kd.fromList $ points
 
 prop_samePoints :: [Kd.Point3d] -> Bool
 prop_samePoints points =
@@ -57,7 +59,7 @@ prop_removeReallyRemovesPoints points = points /= [] ==>
 
 prop_removePreservesInvariant :: [Kd.Point3d] -> Kd.Point3d -> Bool
 prop_removePreservesInvariant points pKill =
-    Kd.allSubtreesAreValid $ tree `Kd.remove` pKill
+    allSubtreesAreValid $ tree `Kd.remove` pKill
     where tree = Kd.fromList points
 
 return []

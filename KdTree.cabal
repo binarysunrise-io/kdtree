@@ -26,12 +26,15 @@ source-repository head
   location: git@github.com:ijt/kdtree.git
 
 Library
-  Exposed-modules: Data.Trees.KdTree
+  Exposed-modules: Data.Trees.KdTree.Points.KdTree
+  Other-modules: Data.Trees.KdTree.Points.Internal
   Build-depends: base < 5
   
 Test-suite KdTreeTest
   Type:             exitcode-stdio-1.0
-  Main-is:          KdTreeTest.hs
-  Default-language: Haskell2010
+  hs-source-dirs:   .,Data, test
+  Main-is:          Main.hs
   Build-depends:    base >= 4.8 && < 5
+                  , hspec == 2.2.3
                   , QuickCheck
+  
