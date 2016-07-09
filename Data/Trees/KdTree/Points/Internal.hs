@@ -26,7 +26,7 @@ module Data.Trees.KdTree.Points.Internal
   ) where
 
 import Data.Maybe
-
+import Data.Vector.V3 as Data.Trees.KdTree.Points.Internal (Vector3 (..))
 import qualified Data.Foldable as F
 import qualified Data.List as L
 
@@ -46,6 +46,13 @@ instance Point Point3d where
     coord 0 p = p3x p
     coord 1 p = p3y p
     coord 2 p = p3z p
+
+instance Point Vector3 where
+    dimension _ = 3
+
+    coord 0 p = v3x p
+    coord 1 p = v3y p
+    coord 2 p = v3z p
 
 instance Functor KdTree where
     fmap _ KdEmpty = KdEmpty
