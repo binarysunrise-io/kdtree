@@ -18,7 +18,7 @@ Maintainer:          issac.trotts@gmail.com
 Copyright:           Copyright 2011, Issac Trotts
 Category:            Graphics
 Build-type:          Simple
-Cabal-version:       >=1.6
+Cabal-version:       >=1.10
 Extra-source-files:  README
 
 source-repository head
@@ -33,6 +33,7 @@ Library
   Build-depends: base < 5
                , AC-Vector
                , AC-Vector-Fancy
+               , semigroups
                , random
                , random-shuffle
               

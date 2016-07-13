@@ -12,129 +12,172 @@
 
 -}
 
-{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, TypeFamilies, InstanceSigs #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, TypeFamilies, TypeSynonymInstances, InstanceSigs #-}
 
 module Data.Trees.KdTree.Regions.Internal where
 
 import Data.Maybe
+import Data.Bool
 import Data.Vector.V3
 import Data.Vector.Class
-import qualified Data.Foldable as F
 import qualified Data.List as L
-import Data.Vector.Fancy
+import Data.Vector.Fancy 
+import qualified Data.BoundingBox.Range as R
 import Data.BoundingBox
 import Data.Ord
+import qualified Data.List.NonEmpty as NE
 -- | KdTree adapted to regions, based on
 --   Foundations of Multidimensional and Metric Data Structures by Hanan Samet
 --
 
+type BBoxOffset = Scalar
 
 class ( BoundingBox bbox
       , Vector vect
-      , Vector center  -- vect ~ center
-       
-      ) => KdTreeRegional bbox vect center payload where
+      ) => KdTreeRegional bbox vect payload where
   
   type Payload payload :: *
   data Axes vect :: *
-  data KdTree vect bbox payload :: * -> *
-  data Region bbox center :: * -> *
-
-  -- | fromList builds KdTree given list of Vector/payload pairs
-  fromList :: [(vect,payload)] -> KdTree vect bbox payload center
+  data KdTree bbox payload :: *
+  data Region bbox payload :: *
+   
+  toBBox :: [(vect,BBoxOffset,payload)] -> 
+            [(bbox,payload)]
+  -- | fromList builds KdTree given list of bboxes/payload pairs
+  fromList :: [(bbox,payload)] -> KdTree bbox payload 
 
   -- | fromSubList
-  fromSubList :: [(vect,payload)] -> Axes Vector3 -> KdTree vect bbox payload center
+  fromSubList :: [(bbox,payload)] -> Axes vect -> KdTree bbox payload 
 
-  -- | toList generates list of Vector/payload pairs, given a KdTree
-  toList :: KdTree vect bbox payload center -> [(vect,payload)]
+  -- | toList generates list of bbox/payload pairs, given a KdTree
+  toList :: KdTree bbox payload -> [(bbox,payload)]
   -- | nearestNeighbor returns the nearest neighbor of bbox in tree.
-  nearestNeighbor :: KdTree vect bbox payload center -> bbox -> Maybe bbox
+  nearestNeighbor :: KdTree bbox payload -> bbox -> Maybe bbox
   -- | nearNeighbors kdtree r bbox returns all neighbors within 
   --   distance r from bbox in tree.
-  nearNeighbors :: KdTree vect bbox payload center -> 
-                   Scalar                          ->
-                   bbox                            ->
+  nearNeighbors :: KdTree bbox payload -> 
+                   Scalar              ->
+                   bbox                ->
                    [bbox]
   -- | kNearestNeighbors tree k bbox returns the k closest points
   --   to bbox within tree.
-  kNearestNeighbors :: KdTree vect bbox payload center -> Int -> bbox -> [bbox]
+  kNearestNeighbors :: KdTree bbox payload -> Int -> bbox -> [bbox]
   -- | remove t (v,p) removes (v,p) from t
-  remove :: KdTree vect bbox payload center -> 
-            (vect,payload)                  ->
-            KdTree vect bbox payload center
+  remove :: KdTree bbox payload -> 
+            (bbox,payload)      ->
+            KdTree bbox payload 
 
 -- | Demo instance. To Be moved to DocTest
-instance KdTreeRegional BBox3 Vector3 Vector3 Int where
+instance KdTreeRegional BBox3 Vector3 Int where
   type Payload Int = Int
   data Axes Vector3 = X AxisX | Y AxisY | Z AxisZ deriving Show
-  data KdTree Vector3 BBox3 Int Vector3
+  data KdTree BBox3 Int 
     = KdNode {
-        kdLeft  :: KdTree Vector3 BBox3 Int Vector3
-      , kdSplit :: (Axes Vector3,Scalar)
-      , kdRight :: KdTree Vector3 BBox3 Int Vector3
+        kdLeft     :: KdTree BBox3 Int 
+      , kdSplit    :: (Axes Vector3,Scalar)
+      , overlapped :: [(Region BBox3 Int)]
+      , kdRight    :: KdTree BBox3 Int 
       }
-    | KdLeaf (Maybe (Region BBox3 Vector3 Int))
+    | KdLeaf (Maybe (Region BBox3 Int))
     deriving Show
 
-  data Region BBox3 Vector3 Int = Region
+  data Region BBox3 Int = Region
     { region  :: BBox3
-    , center  :: Vector3
     , payload :: Int
     } deriving Show
 
   -- |
-
-  fromList :: [(Vector3,Payload Int)] -> KdTree Vector3 BBox3 Int Vector3
+  toBBox :: [(Vector3,BBoxOffset,Payload Int)] ->
+            [(BBox3,Payload Int)]
+  toBBox [] = []
+  toBBox xs = L.map toBBox' xs
+    where
+      toBBox' ((Vector3 x y z),offset,payload) = (bbox3,payload)
+        where
+          bbox3 = bound_corners nwu sed
+          nwu = Vector3 (x - offset) (y + offset) (z + offset)
+          sed = Vector3 (x + offset) (y - offset) (z - offset)
+           
+  fromList :: [(BBox3,Payload Int)] -> KdTree BBox3 Int 
   fromList [] = KdLeaf Nothing
   fromList aList = fromSubList aList (X AxisX)
 
-  -- | The Vector3 represents the center from which the Bounding
-  --   Box is built. 
-  fromSubList :: [(Vector3,Payload Int)] ->
-                 Axes Vector3            ->
-                 KdTree Vector3 BBox3 Int Vector3
-  fromSubList ((center@(Vector3 x y z),payload):[]) _ =
+  fromSubList :: [(BBox3,Payload Int)] ->
+                 Axes Vector3          ->
+                 KdTree BBox3 Int 
+  fromSubList ((bbox,payload):[]) _ =
     KdLeaf (Just region)
     where
-       region = Region bbox center payload
-       bbox   = bound_corners nwu sed
-       nwu    = Vector3 nwux nwuy nwuz
-       sed    = Vector3 sedx sedy sedz
-       nwux   = x - 1
-       nwuy   = y + 1
-       nwuz   = z + 1
-       sedx   = x + 1
-       sedy   = y - 1
-       sedz   = z - 1
+      region = Region bbox payload
     
-  fromSubList aList axis = node
+  fromSubList bList axis = node
     where
-
-      sortedPoints = 
-        L.sortBy (\a b -> (attrib_value (fst a)) `compare` (attrib_value (fst b))) aList
-
-      medianIndex = length sortedPoints `div` 2
-      
-      pivot = sortedPoints !! medianIndex
-      attrib_value = get_coord_wrapper axis
-      get_coord_wrapper (X AxisX) = get_coord AxisX
-      get_coord_wrapper (Y AxisY) = get_coord AxisY
-      get_coord_wrapper (Z AxisZ) = get_coord AxisZ
+      node =
+        KdNode {
+          kdLeft = fromSubList front (nextAxis axis)
+        , kdSplit = (axis, attrib_value axis split)
+        , overlapped = overlaps axis split sortedBoxes
+        , kdRight = fromSubList back (nextAxis axis)
+        } 
+      -- | helper functions prepping [(BBox3,Int)] for KdNode
+      front = take medianIndex removedSplit
+      back  = drop medianIndex removedSplit
+      removedSplit = (map snd sortedBoxes)
+      medianIndex = length sortedBoxes `div` 2
+      split = fst (sortedBoxes !! medianIndex)
 
       nextAxis (X AxisX) = Y AxisY
       nextAxis (Y AxisY) = Z AxisZ
       nextAxis (Z AxisZ) = X AxisX
- 
-      node =
-        KdNode {
-          kdLeft  =
-            fromSubList (take medianIndex sortedPoints) (nextAxis axis)
-        , kdSplit = (axis, attrib_value (fst pivot))
-        , kdRight = 
-            fromSubList (drop medianIndex sortedPoints) (nextAxis axis)
-        }
-   
-      nextAxis (X AxisX) = Y AxisY
-      nextAxis (Y AxisY) = Z AxisZ
-      nextAxis (Z AxisZ) = X AxisX      
+
+      -- | compute and map midpoint of each (BBox3,Int)
+      --   for the sort
+      midpoints :: [(Vector3,(BBox3,Int))]
+      midpoints = map midpoint bList
+
+      midpoint :: (BBox3,Int) -> (Vector3,(BBox3,Int))
+      midpoint bp@(b,_) = (midpoint',bp)
+        where
+          midpoint' = Vector3 minx miny minz
+          (Vector3 minx miny minz) = min_point b
+          (Vector3 maxx maxy maxz) = max_point b
+          midx = (maxx + minx) / 2
+          midy = (maxy + miny) / 2
+          midz = (maxz + minz) /2 
+
+      -- | Sorts based on splitting axis
+      sortedBoxes :: [(Vector3,(BBox3,Int))]
+      sortedBoxes = 
+        L.sortBy sort_by_attrib midpoints
+  
+      sort_by_attrib :: (Vector3,(BBox3,Int)) ->
+                        (Vector3,(BBox3,Int)) -> 
+                        Ordering
+      sort_by_attrib a b =
+        (attrib_value axis (fst a)) `compare` (attrib_value axis (fst b)) 
+      attrib_value (X AxisX) vect = get_coord AxisX vect
+      attrib_value (Y AxisY) vect = get_coord AxisY vect
+      attrib_value (Z AxisZ) vect = get_coord AxisZ vect
+
+      -- | Computes BBoxs overlapping split
+      overlaps :: Axes Vector3  -> 
+                  Vector3       -> 
+                  [(Vector3,(BBox3,Int))] -> 
+                  [Region BBox3 Int]
+      overlaps axis split sortedBoxes =
+        mapMaybe (overlap axis split) sortedBoxes
+
+      overlap :: Axes Vector3 -> 
+                 Vector3 -> 
+                 (Vector3,(BBox3,Int)) -> 
+                 Maybe (Region BBox3 Int)
+      overlap axis (Vector3 x y z) (_,(bbox,payload)) =
+        case axis of
+          (X AxisX) -> bool Nothing (Just region) (R.within_bounds x x_range)
+          (Y AxisY) -> bool Nothing (Just region) (R.within_bounds y y_range)
+          (Z AxisZ) -> bool Nothing (Just region) (R.within_bounds z z_range)
+        where
+          region = Region bbox payload
+          x_range = axis_range AxisX bbox
+          y_range = axis_range AxisY bbox
+          z_range = axis_range AxisZ bbox 
