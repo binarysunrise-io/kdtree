@@ -44,26 +44,41 @@ instance KdTreeRegional BBox3 Vector3 where
     = KdNode {
         kdLeft     :: KdTree BBox3 a 
       , kdSplit    :: (Axes Vector3,Scalar)
-      , overlapped :: Maybe (Region a)
+      , overlapped :: [(BBox3, a)] -- can't get Region right
       , kdRight    :: KdTree BBox3 a 
       }
-    | KdLeaf (Maybe (Region a))
+    | KdLeaf (Maybe [(BBox3, a)])
     deriving Show
+--  type Region BBox3 a = [(BBox3, a)]
+  data Collisions BBox3 a = Collisions [(BBox3,a)] deriving (Functor,Show)
 
-  data Collisions BBox3 a = Collisions [(BBox3,a)] deriving Show
+  evalBox :: BBox3 -> Axes Vector3 -> Scalar -> Bool
+  evalBox bbox axis scalar = case axis of
+    (X AxisX) -> scalar > R.max_point (axis_range AxisX bbox)
+    (Y AxisY) -> scalar > R.max_point (axis_range AxisY bbox)
+    (Z AxisZ) -> scalar > R.max_point (axis_range AxisY bbox)
+     
 
   nearestNeighbor :: KdTree BBox3 a -> 
                      BBox3          -> 
-                     Either (Collisions BBox3 a) (Maybe (Region a))
+                     Either (Collisions BBox3 a) (Maybe [(BBox3, a)])
   nearestNeighbor (KdLeaf Nothing) _ = Right Nothing
 
-  nearestNeighbor 
-    (KdNode (KdLeaf Nothing) _ overlapped@(Just overlapped') (KdLeaf Nothing)) bbox = bool Nothing overlapped $ bbox `elem` (map fst overlapped')
+  nearestNeighbor (KdLeaf (Just leaf)) bbox =
+    isContained 
+    bool Nothing (Just leaf) $ bbox `elem` (map fst leaf)
 
-  nearestNeighbor (KdNode left (axis,scalar) overlapped right) bbox = 
-    case find of
-      []         -> Right (findNearest bbox candidates)
-      collisions -> Left (Collisions collisions)
+  -- | nearestNeighbor third case returns all possible candidates
+  --   in the event there are no leaves connected to Node
+  nearestNeighbor
+    (KdNode (KdLeaf Nothing) _ overlapped (KdLeaf Nothing)) bbox =
+      bool (Right Nothing) (Right $ Just overlapped) $ 
+      bbox `elem` (map fst overlapped)
+
+  nearestNeighbor (KdNode left (axis,scalar) overlapped right) bbox = undefined
+{-    case (findCandidates) of
+      []         -> Right Nothing
+      candiates  -> findNearest bbox
     where 
       findNearest :: BBox3 -> (Maybe (Region a)) -> (Maybe (Region a))
       findNearest bbox regions =
@@ -96,7 +111,7 @@ instance KdTreeRegional BBox3 Vector3 where
       isOverlapping = 
         fromMaybe False $
         bbox `elem` (fmap fst overlapped')
-    
+-}    
     
     
   toBBox :: [(Vector3,BBoxOffset,a)] ->
@@ -117,10 +132,7 @@ instance KdTreeRegional BBox3 Vector3 where
   fromSubList :: [(BBox3,a)] -> Axes Vector3 -> KdTree BBox3 a
   fromSubList [] _ = KdLeaf Nothing
   fromSubList blist@(length -> l) _ | l <= leafSize =
-    KdLeaf (Just regions)
-    where
-      regions = map toRegion blist
-      toRegion bboxv = bboxv
+    KdLeaf (Just blist)
     
   fromSubList bList axis = node
     where
@@ -172,10 +184,10 @@ instance KdTreeRegional BBox3 Vector3 where
       attrib_value (Z AxisZ) vect = get_coord AxisZ vect
 
       -- | Computes BBoxs overlapping split
-      overlaps :: Axes Vector3  -> 
-                  Vector3       -> 
+      overlaps :: Axes Vector3          -> 
+                  Vector3               -> 
                   [(Vector3,(BBox3,a))] -> 
-                  Region a
+                  [(BBox3, a)] 
       overlaps axis split sortedBoxes =
         mapMaybe (overlap axis split) sortedBoxes
 
@@ -194,4 +206,11 @@ instance KdTreeRegional BBox3 Vector3 where
           y_range = axis_range AxisY bbox
           z_range = axis_range AxisZ bbox 
 
-
+mergeResults :: Either (Collisions BBox3 a) (Maybe [(BBox3, a)]) ->
+                Either (Collisions BBox3 a) (Maybe [(BBox3, a)]) ->
+                Either (Collisions BBox3 a) (Maybe [(BBox3, a)])
+mergeResults (Left (Collisions list)) (Left (Collisions list)) = 
+  Left (Collisions list ++ list)
+mergeResults (Right list) (Right list) = list <> list
+mergeResults list@(Left list') _ = list
+mergeResults _ list@(Left list') = list 

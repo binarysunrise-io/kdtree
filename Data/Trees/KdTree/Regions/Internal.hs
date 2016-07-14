@@ -17,7 +17,6 @@
 module Data.Trees.KdTree.Regions.Internal 
   ( BBoxOffset
   , KdTreeRegional (..)
-  , Region
   ) where
 
 import Data.Vector.V3
@@ -28,13 +27,14 @@ import Data.BoundingBox
 --   Foundations of Multidimensional and Metric Data Structures by Hanan Samet
 --
 type BBoxOffset = Scalar
-type Region a = [(BBox3, a)]
+type Distance   = Scalar
 class ( BoundingBox bbox, Vector vect) => KdTreeRegional bbox vect where
   
 --  type Payload payload :: *
   data Axes vect :: *
   data KdTree bbox :: * -> *
   data Collisions bbox :: * -> * 
+  type Region bbox :: * -> * -- needs work
   toBBox :: [(vect,BBoxOffset,a)] -> [(bbox,a)]
 
   -- | fromList builds KdTree given list of bboxes/payload pairs
@@ -48,13 +48,15 @@ class ( BoundingBox bbox, Vector vect) => KdTreeRegional bbox vect where
   -- | nearestNeighbor returns the nearest neighbor of bbox in tree.
   nearestNeighbor :: KdTree bbox a                        -> 
                      bbox                                 -> 
-                     Maybe (Region a)
+                     Either (Collisions bbox a) (Maybe [(bbox,a)])
   -- | nearNeighbors kdtree r bbox returns all neighbors within 
   --   distance r from bbox in tree.
   nearNeighbors :: KdTree bbox a -> Scalar -> bbox -> [bbox]
   -- | kNearestNeighbors tree k bbox returns the k closest points
   --   to bbox within tree.
   kNearestNeighbors :: KdTree bbox a -> Int -> bbox -> [bbox]
+
+  evalBox :: bbox -> Axes vect -> Scalar -> Bool
 
   -- | insert t (b,a) inserts (b,a) in t
   insert :: KdTree bbox a -> (bbox,a) -> KdTree bbox a
