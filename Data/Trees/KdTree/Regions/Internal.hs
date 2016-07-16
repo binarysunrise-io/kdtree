@@ -12,10 +12,11 @@
 
 -}
 
-{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, TypeFamilies, TypeSynonymInstances, InstanceSigs, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, TypeFamilies, TypeSynonymInstances, InstanceSigs, ViewPatterns, FunctionalDependencies #-}
 
 module Data.Trees.KdTree.Regions.Internal 
   ( BBoxOffset
+  , Distance 
   , KdTreeRegional (..)
   ) where
 
@@ -28,20 +29,28 @@ import Data.BoundingBox
 --
 type BBoxOffset = Scalar
 type Distance   = Scalar
-class ( BoundingBox bbox, Vector vect) => KdTreeRegional bbox vect where
+class ( BoundingBox bbox, Vector vect) => 
+      KdTreeRegional bbox vect | bbox -> vect 
+      where
   
 --  type Payload payload :: *
   data Axes vect :: *
   data KdTree bbox :: * -> *
   data Collisions bbox :: * -> * 
   type Region bbox :: * -> * -- needs work
+
+  -- | SplitBox splits a node's bounding box along a given axis, at the split
+  splitBox :: vect -> Axes vect -> bbox -> (bbox,bbox)
+  -- | bbis is a Bounding Box of Infinite Space
+--  bbis :: bbox
+
   toBBox :: [(vect,BBoxOffset,a)] -> [(bbox,a)]
 
   -- | fromList builds KdTree given list of bboxes/payload pairs
   fromList :: [(bbox,a)] -> KdTree bbox a 
 
   -- | fromSubList
-  fromSubList :: [(bbox,a)] -> Axes vect -> KdTree bbox a 
+  fromSubList :: bbox -> [(bbox,a)] -> Axes vect -> KdTree bbox a 
 
   -- | toList generates list of bbox/payload pairs, given a KdTree
   toList :: KdTree bbox a -> [(bbox,a)]
@@ -62,3 +71,5 @@ class ( BoundingBox bbox, Vector vect) => KdTreeRegional bbox vect where
   insert :: KdTree bbox a -> (bbox,a) -> KdTree bbox a
   -- | remove t (b,a) removes (b,a) from t
   remove :: KdTree bbox a -> (bbox,a) -> KdTree bbox a
+
+
