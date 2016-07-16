@@ -54,40 +54,78 @@ instance KdTreeRegional BBox3 Vector3 where
       }
     | KdLeaf (Maybe [(BBox3, a)])
     deriving Show
---  type Region BBox3 a = [(BBox3, a)]
+
+  data Cartesian Vector3 = Cartesian 
+    { distx :: Scalar
+    , disty :: Scalar
+    , distz :: Scalar
+    }
+
   data Collisions BBox3 a = Collisions [(BBox3,a)] deriving (Functor,Show)
 
-  -- | splitBox
-  --   splits boundary box along an axis
-  splitBox :: Vector3 -> Axes Vector3 -> BBox3 -> (BBox3, BBox3)
-  splitBox split axis node_bbox = case axis of
-    (X AxisX) -> (xbox_left, xbox_right)
-    (Y AxisY) -> (ybox_left, ybox_right)
-    (Z AxisZ) -> (zbox_left, zbox_right)
+  euclidianDistance :: Cartesian Vector3 -> Scalar
+  euclidianDistance (Cartesian distx' disty' distz') =
+    sqrt( (distx'^2) + (disty'^2) + (distz'^2) )
+     
+  boxAxisDistance :: Axes Vector3 -> BBox3 -> BBox3 -> Scalar
+  boxAxisDistance (X AxisX) bbox1 bbox2
+    | minx1 > maxx2 = minx1 - maxx2
+    | minx2 > maxx1 = minx2 - maxx1
+    | otherwise     = 0 -- collision
+      where
+        minx1 = R.min_point xrange1 
+        maxx1 = R.max_point xrange1 
+        minx2 = R.min_point xrange2
+        maxx2 = R.max_point xrange2
+        xrange1 = axis_range AxisX bbox1
+        xrange2 = axis_range AxisX bbox2
+      
+  -- | splitRange
+  --   splitRange splits a range on a given axis
+  splitRange :: Vector3 -> Axes Vector3 -> BBox3 -> (LeftRange,RightRange)
+  splitRange split (X AxisX) node_bbox = (leftx_range, rightx_range)
     where
-      xbox_left    = rangeXYZ leftx_range (rangeY node_bbox) (rangeZ node_bbox)
-      xbox_right   = rangeXYZ rightx_range (rangeY node_bbox) (rangeZ node_bbox)
       leftx_range  = R.Range minx (v3x split)
       rightx_range = R.Range (v3x split) maxx
       minx         = R.min_point xrange
       maxx         = R.max_point xrange
       xrange       = axis_range AxisX node_bbox
-
-      ybox_left    = rangeXYZ (rangeX node_bbox) lefty_range (rangeZ node_bbox)
-      ybox_right   = rangeXYZ (rangeX node_bbox) righty_range (rangeZ node_bbox)
+  splitRange split (Y AxisY) node_bbox = (lefty_range, righty_range)
+    where
       lefty_range  = R.Range miny (v3y split)
       righty_range = R.Range (v3y split) maxy
       miny         = R.min_point yrange
       maxy         = R.max_point yrange
       yrange       = axis_range AxisY node_bbox
-
-      zbox_left    = rangeXYZ (rangeX node_bbox) (rangeY node_bbox) leftz_range
-      zbox_right   = rangeXYZ (rangeX node_bbox) (rangeY node_bbox) rightz_range
+  splitRange split (Z AxisZ) node_bbox = (leftz_range, rightz_range)
+    where
       leftz_range  = R.Range minz (v3z split)
       rightz_range = R.Range (v3z split) maxz
       minz         = R.min_point zrange
       maxz         = R.max_point zrange
       zrange       = axis_range AxisZ node_bbox
+	
+      
+  -- | splitBox
+  --   splits boundary box along an axis
+  splitBox :: Vector3 -> Axes Vector3 -> BBox3 -> (BBox3, BBox3)
+  splitBox split axis@(X AxisX) node_bbox = (xbox_left, xbox_right)
+    where
+      xbox_left  = rangeXYZ leftx_range (rangeY node_bbox) (rangeZ node_bbox)
+      xbox_right = rangeXYZ leftx_range (rangeY node_bbox) (rangeZ node_bbox)
+      (leftx_range, rightx_range)  = splitRange split axis node_bbox
+
+  splitBox split axis@(Y AxisY) node_bbox = (ybox_left, ybox_right)
+    where
+      ybox_left  = rangeXYZ (rangeX node_bbox) lefty_range (rangeZ node_bbox)
+      ybox_right = rangeXYZ (rangeX node_bbox) righty_range (rangeZ node_bbox)
+      (lefty_range, righty_range) = splitRange split axis node_bbox
+
+  splitBox split axis@(Z AxisZ) node_bbox = (zbox_left, zbox_right)
+    where
+      zbox_left  = rangeXYZ (rangeX node_bbox) (rangeY node_bbox) leftz_range
+      zbox_right = rangeXYZ (rangeX node_bbox) (rangeY node_bbox) rightz_range
+      (leftz_range, rightz_range) = splitRange split axis node_bbox
 
   evalBox :: BBox3 -> Axes Vector3 -> Scalar -> Bool
   evalBox bbox axis scalar = case axis of
@@ -96,12 +134,25 @@ instance KdTreeRegional BBox3 Vector3 where
     (Z AxisZ) -> scalar > R.max_point (axis_range AxisY bbox)
      
 
+  findDistance :: BBox3 -> (BBox3, a) -> (Scalar, BBox3, a)
+  findDistance bbox1 (bbox2,a) = undefined
+
+  findNearest :: [(Scalar, BBox3, a)] ->
+                 Either (Collisions BBox3 a) (Maybe [(BBox3,a)])
+  findNearest = undefined
+
+  euclidianDistance :: Cartesian Vector3 -> Scalar
+  euclidianDistance = undefined
+
   nearestNeighbor :: KdTree BBox3 a -> 
                      BBox3          -> 
                      Either (Collisions BBox3 a) (Maybe [(BBox3, a)])
   nearestNeighbor (KdLeaf Nothing) _ = Right Nothing
 
-  nearestNeighbor (KdLeaf (Just leaf)) bbox = undefined
+  nearestNeighbor (KdLeaf (Just leaf)) bbox =  
+    findNearest (map (findDistance bbox) leaf) 
+    
+     
 --    isContained 
 --    bool Nothing (Just leaf) $ bbox `elem` (map fst leaf)
 
@@ -221,7 +272,8 @@ instance KdTreeRegional BBox3 Vector3 where
                         (Vector3,(BBox3,a)) -> 
                         Ordering
       sort_by_attrib p q =
-        (attrib_value axis (fst p)) `compare` (attrib_value axis (fst q)) 
+        (attrib_value axis (fst p)) `compare` (attrib_value axis (fst q))
+ 
       attrib_value (X AxisX) vect = get_coord AxisX vect
       attrib_value (Y AxisY) vect = get_coord AxisY vect
       attrib_value (Z AxisZ) vect = get_coord AxisZ vect

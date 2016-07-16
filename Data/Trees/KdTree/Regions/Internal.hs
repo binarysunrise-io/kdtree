@@ -17,28 +17,45 @@
 module Data.Trees.KdTree.Regions.Internal 
   ( BBoxOffset
   , Distance 
+  , LeftRange
+  , RightRange
   , KdTreeRegional (..)
+  
   ) where
 
 import Data.Vector.V3
 import Data.Vector.Class
 import Data.Vector.Fancy 
 import Data.BoundingBox
+import qualified Data.BoundingBox.Range as R
 -- | KdTree adapted to regions, based on
 --   Foundations of Multidimensional and Metric Data Structures by Hanan Samet
 --
 type BBoxOffset = Scalar
 type Distance   = Scalar
+type LeftRange  = R.Range
+type RightRange = R.Range
 class ( BoundingBox bbox, Vector vect) => 
       KdTreeRegional bbox vect | bbox -> vect 
       where
   
 --  type Payload payload :: *
   data Axes vect :: *
+  data Cartesian vect :: *
   data KdTree bbox :: * -> *
   data Collisions bbox :: * -> * 
   type Region bbox :: * -> * -- needs work
 
+  findDistance :: bbox -> (bbox, a) -> (Scalar,bbox, a)
+
+  findNearest :: [(Scalar,bbox,a)]                             -> 
+                 Either (Collisions bbox a) (Maybe [(bbox,a)])
+
+  euclidianDistance :: Cartesian vect -> Scalar
+
+  boxAxisDistance :: Axes vect -> bbox -> bbox -> Scalar
+  -- | SplitRange splits a range on a given axis
+  splitRange :: vect -> Axes vect -> bbox -> (R.Range, R.Range)
   -- | SplitBox splits a node's bounding box along a given axis, at the split
   splitBox :: vect -> Axes vect -> bbox -> (bbox,bbox)
   -- | bbis is a Bounding Box of Infinite Space
