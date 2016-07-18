@@ -12,7 +12,7 @@
 
 -}
 
-{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, TypeFamilies, TypeSynonymInstances, InstanceSigs, ViewPatterns, DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, TypeFamilies, TypeSynonymInstances, InstanceSigs, ViewPatterns, FlexibleInstances, DeriveFunctor #-}
 
 module Data.Trees.KdTree.Regions.KThree.KThreeTree where
 
@@ -29,6 +29,7 @@ import Data.BoundingBox.B3 hiding ( min_point
                                   , min_point
                                   , bound_corners)
 import Data.Ord
+import Data.Either
 import Data.Semigroup
 import Control.Monad
 import Data.Trees.KdTree.Regions.Internal
@@ -42,32 +43,33 @@ leafSize = 18
 -- | 3-D Tree. Needs own module
 instance KdTreeRegional BBox3 Vector3 where
 --  type Payload Int = Int
-
-  data Axes Vector3 = X AxisX | Y AxisY | Z AxisZ deriving Show
+  type Vect BBox3 = Vector3
+  data Axes BBox3 = X AxisX | Y AxisY | Z AxisZ deriving Show
   data KdTree BBox3 a
     = KdNode {
         kdLeft     :: KdTree BBox3 a
-      , nodeBBox   :: BBox3 
-      , kdSplit    :: (Axes Vector3,Scalar)
+      , nodeBBox   :: BBox3
+      , kdSplit    :: (Axes BBox3,Scalar)
       , overlapped :: [(BBox3, a)] -- can't get Region right
       , kdRight    :: KdTree BBox3 a 
       }
     | KdLeaf (Maybe [(BBox3, a)])
     deriving Show
 
-  data Cartesian Vector3 = Cartesian 
-    { distx :: Scalar
-    , disty :: Scalar
-    , distz :: Scalar
-    }
-
   data Collisions BBox3 a = Collisions [(BBox3,a)] deriving (Functor,Show)
 
-  euclidianDistance :: Cartesian Vector3 -> Scalar
-  euclidianDistance (Cartesian distx' disty' distz') =
-    sqrt( (distx'^2) + (disty'^2) + (distz'^2) )
-     
-  boxAxisDistance :: Axes Vector3 -> BBox3 -> BBox3 -> Scalar
+--  type Vect bbox = Vector3
+  findDistance :: BBox3     -> 
+                 (BBox3, a) -> 
+                 (Scalar, BBox3, a) 
+  findDistance bbox1 (bbox2,a) = (edist,bbox2,a)
+    where
+      edist = sqrt ( (distx'^2) + (disty'^2) + (distz'^2) )
+      distx' = boxAxisDistance (X AxisX) bbox1 bbox2
+      disty' = boxAxisDistance (Y AxisY) bbox1 bbox2
+      distz' = boxAxisDistance (Z AxisZ) bbox1 bbox2
+
+  boxAxisDistance :: Axes BBox3 -> BBox3 -> BBox3 -> Scalar
   boxAxisDistance (X AxisX) bbox1 bbox2
     | minx1 > maxx2 = minx1 - maxx2
     | minx2 > maxx1 = minx2 - maxx1
@@ -82,7 +84,7 @@ instance KdTreeRegional BBox3 Vector3 where
       
   -- | splitRange
   --   splitRange splits a range on a given axis
-  splitRange :: Vector3 -> Axes Vector3 -> BBox3 -> (LeftRange,RightRange)
+  splitRange :: Vector3 -> Axes BBox3 -> BBox3 -> (LeftRange,RightRange)
   splitRange split (X AxisX) node_bbox = (leftx_range, rightx_range)
     where
       leftx_range  = R.Range minx (v3x split)
@@ -104,11 +106,9 @@ instance KdTreeRegional BBox3 Vector3 where
       minz         = R.min_point zrange
       maxz         = R.max_point zrange
       zrange       = axis_range AxisZ node_bbox
-	
-      
   -- | splitBox
   --   splits boundary box along an axis
-  splitBox :: Vector3 -> Axes Vector3 -> BBox3 -> (BBox3, BBox3)
+  splitBox :: Vector3 -> Axes BBox3 -> BBox3 -> (BBox3, BBox3)
   splitBox split axis@(X AxisX) node_bbox = (xbox_left, xbox_right)
     where
       xbox_left  = rangeXYZ leftx_range (rangeY node_bbox) (rangeZ node_bbox)
@@ -127,41 +127,55 @@ instance KdTreeRegional BBox3 Vector3 where
       zbox_right = rangeXYZ (rangeX node_bbox) (rangeY node_bbox) rightz_range
       (leftz_range, rightz_range) = splitRange split axis node_bbox
 
-  evalBox :: BBox3 -> Axes Vector3 -> Scalar -> Bool
+  evalBox :: BBox3 -> Axes BBox3 -> Scalar -> Bool
   evalBox bbox axis scalar = case axis of
     (X AxisX) -> scalar > R.max_point (axis_range AxisX bbox)
     (Y AxisY) -> scalar > R.max_point (axis_range AxisY bbox)
     (Z AxisZ) -> scalar > R.max_point (axis_range AxisY bbox)
-     
-
-  findDistance :: BBox3 -> (BBox3, a) -> (Scalar, BBox3, a)
-  findDistance bbox1 (bbox2,a) = undefined
 
   findNearest :: [(Scalar, BBox3, a)] ->
-                 Either (Collisions BBox3 a) (Maybe [(BBox3,a)])
-  findNearest = undefined
+                 Either (Collisions BBox3 a) [(Scalar,BBox3,a)]
+  findNearest dists = case (partitionDistances (map findDistances dists)) of
+    Right candidates -> Right (nearest $ L.sortBy distance candidates)
+    collisions       -> collisions
+    where
+      partitionDistances :: [Either (BBox3,a) (Scalar,BBox3,a)] ->
+                            Either (Collisions BBox3 a) [(Scalar,BBox3,a)]
+      partitionDistances e = case (partitionEithers e) of
+        ([],distances) -> Right distances
+        (collisions,_) -> Left (Collisions collisions)
+    
+      findDistances :: (Scalar, BBox3, a) -> Either (BBox3,a) (Scalar,BBox3,a)
+      findDistances a@(dist,box,value)
+        | dist == 0 = Left (box,value) -- collision!
+        | otherwise = Right a
+      
+      distance dist1@(d1,_,_) dist2@(d2,_,_) = d1 `compare` d2
 
-  euclidianDistance :: Cartesian Vector3 -> Scalar
-  euclidianDistance = undefined
-
+      nearest :: [(Scalar,BBox3,a)] -> [(Scalar,BBox3,a)]  
+      nearest dists = nearest' (sortBy distance dists) []
+        where
+          nearest' (v1@(dist1,_,_),v2@(dist2,_,_) accum =
+            if (dist1 <= dist2) 
   nearestNeighbor :: KdTree BBox3 a -> 
                      BBox3          -> 
-                     Either (Collisions BBox3 a) (Maybe [(BBox3, a)])
+                     Either (Collisions BBox3 a) (Maybe [(Scalar,BBox3, a)])
   nearestNeighbor (KdLeaf Nothing) _ = Right Nothing
 
-  nearestNeighbor (KdLeaf (Just leaf)) bbox =  
-    findNearest (map (findDistance bbox) leaf) 
+  nearestNeighbor (KdLeaf (Just leaf)) bbox = undefined
+--    either id Just (findNearest (map (findDistance bbox) leaf)) 
     
      
 --    isContained 
 --    bool Nothing (Just leaf) $ bbox `elem` (map fst leaf)
 
-  -- | nearestNeighbor third case returns all possible candidates
+  -- | nearestNeighbor third case 
   --   in the event there are no leaves connected to Node
   nearestNeighbor
     (KdNode (KdLeaf Nothing) node_bbox _ overlapped (KdLeaf Nothing)) bbox =
-      bool (Right Nothing) (Right $ Just overlapped) $ 
-      bbox `elem` (map fst overlapped)
+      undefined
+--      bool (Right Nothing) (Right $ Just overlapped) $ 
+--      bbox `elem` (map fst overlapped)
 
   nearestNeighbor (KdNode left node_bbox (axis,scalar) overlapped right) bbox = undefined
 {-    case (findCandidates) of
@@ -221,7 +235,7 @@ instance KdTreeRegional BBox3 Vector3 where
       neuCorner = Vector3 (infinity) (infinity) (infinity)
   
 
-  fromSubList :: BBox3 -> [(BBox3,a)] -> Axes Vector3 -> KdTree BBox3 a
+  fromSubList :: BBox3 -> [(BBox3,a)] -> Axes BBox3 -> KdTree BBox3 a
   fromSubList _ [] _ = KdLeaf Nothing
   fromSubList _ blist@(length -> l) _ | l <= leafSize =
     KdLeaf (Just blist)
@@ -253,53 +267,58 @@ instance KdTreeRegional BBox3 Vector3 where
 --    midpoints :: [(Vector3,(BBox3,a))]
       midpoints = map midpoint bList
 
-      midpoint :: (BBox3,a) -> (Vector3,(BBox3,a))
-      midpoint bp@(b,_) = (midpoint',bp)
-        where
-          midpoint' = Vector3 minx miny minz
-          (Vector3 minx miny minz) = min_point b
-          (Vector3 maxx maxy maxz) = max_point b
-          midx = (maxx + minx) / 2
-          midy = (maxy + miny) / 2
-          midz = (maxz + minz) /2 
-
       -- | Sorts based on splitting axis
 --    sortedBoxes :: [(Vector3,(BBox3,a))]
-      sortedBoxes = 
-        L.sortBy sort_by_attrib midpoints
-  
-      sort_by_attrib :: (Vector3,(BBox3,a)) ->
-                        (Vector3,(BBox3,a)) -> 
-                        Ordering
-      sort_by_attrib p q =
-        (attrib_value axis (fst p)) `compare` (attrib_value axis (fst q))
- 
-      attrib_value (X AxisX) vect = get_coord AxisX vect
-      attrib_value (Y AxisY) vect = get_coord AxisY vect
-      attrib_value (Z AxisZ) vect = get_coord AxisZ vect
+      sortedBoxes = L.sortBy (sort_by_attrib axis) midpoints
 
       -- | Computes BBoxs overlapping split
-      overlaps :: Axes Vector3          -> 
+      overlaps :: Axes BBox3            -> 
                   Vector3               -> 
                   [(Vector3,(BBox3,a))] -> 
                   [(BBox3, a)] 
       overlaps axis split sortedBoxes =
         mapMaybe (overlap axis split) sortedBoxes
 
-      overlap :: Axes Vector3 -> 
-                 Vector3 -> 
+      overlap :: Axes BBox3          -> 
+                 Vector3             -> 
                  (Vector3,(BBox3,a)) -> 
                  Maybe (BBox3, a)
-      overlap axis (Vector3 x y z) (_,(bbox,val)) =
-        case axis of
-          (X AxisX) -> bool Nothing (Just region) (R.within_bounds x x_range)
-          (Y AxisY) -> bool Nothing (Just region) (R.within_bounds y y_range)
-          (Z AxisZ) -> bool Nothing (Just region) (R.within_bounds z z_range)
+      overlap axis (Vector3 x y z) (_,(bbox,val)) = case axis of
+        (X AxisX) -> bool Nothing (Just region) (R.within_bounds x x_range)
+        (Y AxisY) -> bool Nothing (Just region) (R.within_bounds y y_range)
+        (Z AxisZ) -> bool Nothing (Just region) (R.within_bounds z z_range)
         where
           region = (bbox,val) 
           x_range = axis_range AxisX bbox
           y_range = axis_range AxisY bbox
-          z_range = axis_range AxisZ bbox 
+          z_range = axis_range AxisZ bbox
+
+--  overlaps :: Axes BBox3 -> Vector3 -> [(Vector3,(BBox3,a))] -> [(BBox3, a)]
+--  overlaps axis split sortedBoxes = mapMaybe (overlap axis split) sortedBoxes
+ 
+--  sortedBoxes ::   
+
+  sort_by_attrib :: Axes BBox3          -> 
+                    (Vector3,(BBox3,a)) -> 
+                    (Vector3,(BBox3,a)) -> 
+                    Ordering
+  sort_by_attrib axis p q =
+    (attrib_value axis (fst p)) `compare` (attrib_value axis (fst q))
+
+  midpoint :: (BBox3,a) -> (Vector3,(BBox3,a))
+  midpoint bp@(b,_) = (midpoint',bp)
+    where
+      midpoint' = Vector3 minx miny minz
+      (Vector3 minx miny minz) = min_point b
+      (Vector3 maxx maxy maxz) = max_point b
+      midx = (maxx + minx) / 2
+      midy = (maxy + miny) / 2
+      midz = (maxz + minz) /2
+
+  attrib_value :: Axes BBox3 -> Vector3 -> Scalar
+  attrib_value (X AxisX) vect = get_coord AxisX vect
+  attrib_value (Y AxisY) vect = get_coord AxisY vect
+  attrib_value (Z AxisZ) vect = get_coord AxisZ vect
 
 mergeResults :: Either (Collisions BBox3 a) (Maybe [(BBox3, a)]) ->
                 Either (Collisions BBox3 a) (Maybe [(BBox3, a)]) ->
@@ -310,3 +329,4 @@ mergeResults (Right (Just list1)) (Right (Just list2)) =
   Right (Just (list1 <> list2))
 mergeResults list@(Left _) _ = list
 mergeResults _ list@(Left _) = list 
+
