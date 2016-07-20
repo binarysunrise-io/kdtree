@@ -42,13 +42,14 @@ class ( BoundingBox bbox, Vector vect) =>
   data Axes bbox :: *
   data KdTree bbox :: * -> *
   data Collisions bbox :: * -> * 
-  type Region bbox :: * -> * -- needs work
+  type Region bbox a :: * -- needs work
   type Vect bbox :: *
+  type Nearest bbox a :: *
  
   findDistance :: bbox -> (bbox, a) -> (Scalar, bbox, a)
 
-  findNearest :: [(Scalar,bbox,a)]                             -> 
-                 Either (Collisions bbox a) [(Scalar,bbox,a)]
+--  findNearest :: [(Scalar,bbox,a)]                             -> 
+--                 Either (Collisions bbox a) [(Scalar,bbox,a)]
 
 
   boxAxisDistance :: Axes bbox -> bbox -> bbox -> Scalar
@@ -79,6 +80,8 @@ class ( BoundingBox bbox, Vector vect) =>
   -- | kNearestNeighbors tree k bbox returns the k closest points
   --   to bbox within tree.
   kNearestNeighbors :: KdTree bbox a -> Int -> bbox -> [(Scalar,bbox,a)]
+
+  findNearest :: KdTree bbox a -> bbox -> [(Scalar,bbox,a)]
 
   evalBox :: bbox -> Axes bbox -> Scalar -> Bool
 
