@@ -27,7 +27,8 @@ import Data.BoundingBox
 import Data.BoundingBox.B3 hiding ( min_point
                                   , max_point
                                   , min_point
-                                  , bound_corners)
+                                  , bound_corners
+                                  , isect)
 import Data.Ord
 import Data.Either
 import Data.Semigroup
@@ -54,10 +55,15 @@ instance KdTreeRegional BBox3 Vector3 where
       , overlapped :: [(BBox3, a)] -- can't get Region right
       , kdRight    :: KdTree BBox3 a 
       }
-    | KdLeaf (Maybe [(BBox3, a)])
+    | KdLeaf (Maybe (Leaf BBox3 a))
     deriving Show
 
   data Collisions BBox3 a = Collisions [(BBox3,a)] deriving (Functor,Show)
+
+  data Leaf BBox3 a = Leaf {
+         leafBBox :: BBox3
+       , kdleaf   :: [(BBox3, a)] 
+       } deriving Show
 
   -- | findDistance calculates the Euclidean distance between
   --   the query box and a candidate
@@ -161,70 +167,74 @@ instance KdTreeRegional BBox3 Vector3 where
   -- | nearestNeighbor
   --   calculates either the collisions or the nearest non-colliding
   --   first case empty 
-  nearestNeighbor :: KdTree BBox3 a -> BBox3 -> Nearest BBox3 a
+  nearestNeighbor :: forall a. KdTree BBox3 a -> BBox3 -> Nearest BBox3 a
   nearestNeighbor (KdLeaf Nothing) _ = Right Nothing
   -- | second case calculates nearest boxes in leaf
-  nearestNeighbor (KdLeaf (Just leaf)) bbox = case nearest' of
-    (Left collision) -> Left collision
-    Right nearest'   -> Right (Just nearest') 
+  nearestNeighbor (KdLeaf (Just (Leaf leaf_box leaf))) qbox = nearest' 
+--    (Left collision) -> Left collision
+--    Right nearest'   -> nearest' 
     where
-      nearest' = (nearest (map (findDistance bbox) leaf)) 
-
-  -- | nearestNeighbor third case 
-  --   in the event there are no leaves connected to Node
-  nearestNeighbor
-    (KdNode (KdLeaf Nothing) node_bbox _ overlapped (KdLeaf Nothing)) bbox =
-      case nearest' of
-        (Left collision) -> Left collision
-        Right nearest''  -> Right (Just nearest'')
-      where
-        nearest' = (nearest (map (findDistance bbox) overlapped))
-  -- | nearestNeighbor case four
+      nearest' = (nearest (map (findDistance qbox) leaf)) 
+  -- | nearestNeighbor case three
   --   (1) seperate out collisions if any
   --   (2) if no collisions determine first list of candidates
   --   (3) take this list and check nearby node boxes for potential
   --       candidates that are closer
-  nearestNeighbor (KdNode left node_bbox (axis,scalar) overlapped right) bbox =
-    case (findNearest) of
-      collisions@(Left _)       -> collisions
-      (Right (Just candidates)) -> case (nearest candidates) of
-                                     (Left collision) -> Left collision
-                                     Right nearest''  -> Right (Just nearest'')
-      _                         -> Right Nothing
-    where 
-      -- | findNearest traverses either one or both branches 
-      findNearest = case (bbox `elem` (fmap fst overlapped)) of
-        True  -> mergeResults (Right (Just overlappedDist)) traverseBoth
-        False -> traverseOneOrBoth
+  nearestNeighbor (KdNode left node_bbox (axis,scalar) overlapped right) qbox =
+    find_nearest
+    where
+      find_nearest :: Nearest BBox3 a
+      find_nearest = 
+        mergeResults (nearest (calcDist qbox overlapped)) traverseBoth
 
-      overlappedDist = map (findDistance bbox) overlapped
+      traverseBoth :: Nearest BBox3 a
+      traverseBoth = 
+        mergeResults left_branch right_branch
+       where 
+         left_branch  = (traverseBranch BLeft left qbox)
+         right_branch = (traverseBranch BRight right qbox)
 
---      traverseBoth :: Nearest BBox3 a
-      traverseBoth = mergeResults traverseLeft traverseRight
+      traverseBranch :: Branch -> KdTree BBox3 a -> BBox3 -> Nearest BBox3 a
+      traverseBranch _ (KdLeaf Nothing) _ = Right Nothing 
+      traverseBranch _ (KdLeaf (Just(Leaf leaf_bbox leaf))) qbox =
+        case (isect qbox leaf_bbox) of
+          Just _ -> candidates
+          _      -> Right Nothing
+        where
+          candidates = (nearest (calcDist qbox leaf))
+      traverseBranch branch node@(KdNode left node_bbox _ overlap right) qbox =
+        case (isect qbox node_bbox) of
+          Just _ -> intersected
+          _      -> Right Nothing
+        where
+          intersected = case candidates of
+            Left cand         -> Left cand
+            Right (Just cand) -> verify branch qbox nextBranch cand
+            Right _           -> Right Nothing
+          candidates = 
+            mergeResults (nearest (calcDist qbox overlap)) $
+            mergeResults (nearestNeighbor left qbox) 
+                         (nearestNeighbor right qbox)
 
---      traverseOneOrBoth :: [(Scalar,BBox3,a)]
-      traverseOneOrBoth = case (evalBox bbox axis scalar) of
-        True -> evaluateTraversal traverseRight bbox left
-        False -> evaluateTraversal traverseLeft bbox right
-
-      -- | evaluateTraversal
-      --   when Right is evaluating a KdNode the candidates
-      --   are compared against the distance of either the left or right branch
-      evaluateTraversal :: Nearest BBox3 a -> 
-                           BBox3           ->
-                           KdTree BBox3 a  ->
-                           Nearest BBox3 a
-      evaluateTraversal collisions@(Left _) _ _ = collisions
-      evaluateTraversal candidates@(Right _) _ (KdLeaf _) = candidates
-      evaluateTraversal candidates@(Right (Just (x:xs))) box n@(KdNode l nbx' _ _ r) =
-        case (evaluateDistanceFromNode x box nbx') of
-          True  -> nearestNeighbor n bbox
-          False -> candidates
-      evaluateTraversal _ _ _ = Right Nothing -- This should never happen
-
-      traverseLeft  = nearestNeighbor left bbox
-      traverseRight = nearestNeighbor right bbox
-  
+          nextBranch = case branch of
+            BLeft -> right
+            BRight -> left
+          
+          verify :: Branch          -> 
+                    BBox3           ->
+                    KdTree BBox3 a  ->
+                    [(Scalar, BBox3, a)] ->
+                    Nearest BBox3 a     
+          verify branch qbox (KdLeaf Nothing) _ = Right Nothing
+          verify branch qbox (KdLeaf leaf) candidates@((dist1,_,_):xs)
+            | dist1 < dist2 = dist1
+            | otherwise     = dist2
+            where
+              dist2 = nearest (calcDist qbox leaf)
+          verify BLeft qbox (KdNode _ node_bbox _ _ right) candidates = 
+            undefined
+          verify BRight qbox (KdNode left node_bbox _ _ _) candidates = 
+            undefined
   -- | toBox builds a list of BBox3 given vector and an offset   
   toBBox :: [(Vector3,BBoxOffset,a)] -> [(BBox3,a)]
   toBBox [] = []
@@ -248,10 +258,10 @@ instance KdTreeRegional BBox3 Vector3 where
       neuCorner = Vector3 (infinity) (infinity) (infinity)
   
 
-  fromSubList :: BBox3 -> [(BBox3,a)] -> Axes BBox3 -> KdTree BBox3 a
+  fromSubList :: forall a. BBox3 -> [(BBox3,a)] -> Axes BBox3 -> KdTree BBox3 a
   fromSubList _ [] _ = KdLeaf Nothing
-  fromSubList _ blist@(length -> l) _ | l <= leafSize =
-    KdLeaf (Just blist)
+  fromSubList bbox blist@(length -> l) _ | l <= leafSize =
+    KdLeaf (Just (Leaf bbox blist))
     
   fromSubList node_bbox bList axis = node
     where
@@ -277,11 +287,11 @@ instance KdTreeRegional BBox3 Vector3 where
 
       -- | compute and map midpoint of each (BBox3,Int)
       --   for the sort
---    midpoints :: [(Vector3,(BBox3,a))]
+      midpoints :: [(Vector3,(BBox3,a))]
       midpoints = map midpoint bList
 
       -- | Sorts based on splitting axis
---    sortedBoxes :: [(Vector3,(BBox3,a))]
+      sortedBoxes :: [(Vector3,(BBox3,a))]
       sortedBoxes = L.sortBy (sort_by_attrib axis) midpoints
 
       -- | Computes BBoxs overlapping split
@@ -333,24 +343,25 @@ instance KdTreeRegional BBox3 Vector3 where
 -- | mergeResults
 --   mergeResults favors Left collisions over Right nearest
 mergeResults :: Nearest BBox3 a -> Nearest BBox3 a -> Nearest BBox3 a
-mergeResults (Left (Collisions list1)) (Left (Collisions list2)) =
-  Left (Collisions (list1 ++ list2))
-mergeResults (Right (Just list1)) (Right (Just list2)) =
-  Right (Just (list1 <> list2))
-mergeResults list@(Left _) _ = list
-mergeResults _ list@(Left _) = list
+mergeResults (Left (Collisions xs)) (Left (Collisions xs')) =
+  Left (Collisions (xs <> xs'))
+mergeResults (Right (Just xs)) (Right (Just xs')) =
+  Right (Just (xs <> xs'))
+mergeResults xs@(Left _) _ = xs
+mergeResults _ xs@(Left _) = xs
 
 -- | nearest produces intermediate value for
---   
-nearest :: [(Scalar, BBox3, a)] ->
-           Either (Collisions BBox3 a) [(Scalar,BBox3,a)]
+--
+nearest :: [(Scalar, BBox3, a)] -> (Nearest BBox3 a)
 nearest dists = case (partitionDistances (map findDistances dists)) of
-  Right candidates -> Right (filterCandidates $ L.sortBy distance candidates)
-  collisions       -> collisions
+  Right candidates -> Right (Just (filtered candidates)) 
+  Left collisions  -> Left collisions
+  where
+    filtered candidates = filterCandidates $ L.sortBy distance candidates
 
 -- | partitionDistances only returns non-collided if collided don't exist
 partitionDistances :: [Either (BBox3,a) (Scalar,BBox3,a)] ->
-                      Either (Collisions BBox3 a) [(Scalar,BBox3,a)]
+                      Either (Collisions BBox3 a) [(Scalar,BBox3, a)]
 partitionDistances e = case (partitionEithers e) of
   ([],distances) -> Right distances
   (collisions,_) -> Left (Collisions collisions)
@@ -383,4 +394,5 @@ evaluateDistanceFromNode  (dist1,_,_) bx nbx = dist1 < dist2
     distx' = boxAxisDistance (X AxisX) bx nbx
     disty' = boxAxisDistance (Y AxisY) bx nbx
     distz' = boxAxisDistance (Z AxisZ) bx nbx
-    
+
+calcDist qbox overlapped = map (findDistance qbox) overlapped    

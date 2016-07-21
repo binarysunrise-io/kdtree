@@ -19,7 +19,7 @@ module Data.Trees.KdTree.Regions.Internal
   , LeftRange
   , RightRange
   , KdTreeRegional (..)
-  
+  , Branch (..) 
   ) where
 
 import Data.Vector.V3
@@ -31,6 +31,7 @@ import qualified Data.BoundingBox.Range as R
 --   Foundations of Multidimensional and Metric Data Structures by Hanan Samet
 --
 type BBoxOffset = Scalar
+data Branch = BLeft | BRight deriving Show
 -- type Distance   = Scalar
 type LeftRange  = R.Range
 type RightRange = R.Range
@@ -41,6 +42,7 @@ class ( BoundingBox bbox, Vector vect) =>
 
   data Axes bbox :: *
   data KdTree bbox :: * -> *
+  data Leaf bbox :: * -> *
   data Collisions bbox :: * -> * 
   type Region bbox a :: * -- needs work
   type Vect bbox :: *
