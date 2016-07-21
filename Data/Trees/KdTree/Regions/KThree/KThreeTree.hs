@@ -115,28 +115,13 @@ instance KdTreeRegional BBox3 Vector3 where
          
       
   -- | splitRange splits a range on a given axis
-  splitRange :: Vector3 -> Axes BBox3 -> BBox3 -> (LeftRange,RightRange)
-  splitRange split (X AxisX) node_bbox = (leftx_range, rightx_range)
-    where
-      leftx_range  = R.Range minx (v3x split)
-      rightx_range = R.Range (v3x split) maxx
-      minx         = R.min_point xrange
-      maxx         = R.max_point xrange
-      xrange       = axis_range AxisX node_bbox
-  splitRange split (Y AxisY) node_bbox = (lefty_range, righty_range)
-    where
-      lefty_range  = R.Range miny (v3y split)
-      righty_range = R.Range (v3y split) maxy
-      miny         = R.min_point yrange
-      maxy         = R.max_point yrange
-      yrange       = axis_range AxisY node_bbox
-  splitRange split (Z AxisZ) node_bbox = (leftz_range, rightz_range)
-    where
-      leftz_range  = R.Range minz (v3z split)
-      rightz_range = R.Range (v3z split) maxz
-      minz         = R.min_point zrange
-      maxz         = R.max_point zrange
-      zrange       = axis_range AxisZ node_bbox
+  splitRange :: (BBox3 -> R.Range) -> Scalar -> BBox3 -> (LeftRange,RightRange)
+  splitRange findRange split_attrib node_bbox = (left_range,right_range)
+    where 
+      left_range = R.Range min_point split_attrib
+      right_range = R.Range split_attrib max_point 
+      min_point   = R.min_point (findRange node_bbox)
+      max_point   = R.max_point (findRange node_bbox) 
 
   -- | splitBox splits boundary box along an axis
   splitBox :: Vector3 -> Axes BBox3 -> BBox3 -> (BBox3, BBox3)
@@ -144,17 +129,17 @@ instance KdTreeRegional BBox3 Vector3 where
     where
       xbox_left  = rangeXYZ leftx_range (rangeY node_bbox) (rangeZ node_bbox)
       xbox_right = rangeXYZ leftx_range (rangeY node_bbox) (rangeZ node_bbox)
-      (leftx_range, rightx_range)  = splitRange split axis node_bbox
+      (leftx_range, rightx_range)  = splitRange rangeX (v3x split) node_bbox
   splitBox split axis@(Y AxisY) node_bbox = (ybox_left, ybox_right)
     where
       ybox_left  = rangeXYZ (rangeX node_bbox) lefty_range (rangeZ node_bbox)
       ybox_right = rangeXYZ (rangeX node_bbox) righty_range (rangeZ node_bbox)
-      (lefty_range, righty_range) = splitRange split axis node_bbox
+      (lefty_range, righty_range) = splitRange rangeY (v3y split) node_bbox
   splitBox split axis@(Z AxisZ) node_bbox = (zbox_left, zbox_right)
     where
       zbox_left  = rangeXYZ (rangeX node_bbox) (rangeY node_bbox) leftz_range
       zbox_right = rangeXYZ (rangeX node_bbox) (rangeY node_bbox) rightz_range
-      (leftz_range, rightz_range) = splitRange split axis node_bbox
+      (leftz_range, rightz_range) = splitRange rangeZ (v3z split) node_bbox
 
   -- | evalBox returns a Bool that determines which branch of a Node 
   --   to traverse
@@ -202,6 +187,7 @@ instance KdTreeRegional BBox3 Vector3 where
           _      -> Right Nothing
         where
           candidates = (nearest (calcDist qbox leaf))
+
       traverseBranch branch node@(KdNode left node_bbox _ overlap right) qbox =
         case (isect qbox node_bbox) of
           Just _ -> intersected
@@ -209,7 +195,7 @@ instance KdTreeRegional BBox3 Vector3 where
         where
           intersected = case candidates of
             Left cand         -> Left cand
-            Right (Just cand) -> verify branch qbox nextBranch cand
+            Right (Just cand) -> verify qbox nextBranch cand
             Right _           -> Right Nothing
           candidates = 
             mergeResults (nearest (calcDist qbox overlap)) $
@@ -220,21 +206,32 @@ instance KdTreeRegional BBox3 Vector3 where
             BLeft -> right
             BRight -> left
           
-          verify :: Branch          -> 
-                    BBox3           ->
+          verify :: BBox3           ->
                     KdTree BBox3 a  ->
                     [(Scalar, BBox3, a)] ->
                     Nearest BBox3 a     
-          verify branch qbox (KdLeaf Nothing) _ = Right Nothing
-          verify branch qbox (KdLeaf leaf) candidates@((dist1,_,_):xs)
-            | dist1 < dist2 = dist1
-            | otherwise     = dist2
+          verify _ (KdLeaf Nothing) _ = Right Nothing
+          verify qbox (KdLeaf (Just (Leaf _ leaf))) candidates@((d,_,_):_)
+            | d `isLess` d' = Right $ Just candidates
+            | otherwise     = d'
             where
-              dist2 = nearest (calcDist qbox leaf)
-          verify BLeft qbox (KdNode _ node_bbox _ _ right) candidates = 
-            undefined
-          verify BRight qbox (KdNode left node_bbox _ _ _) candidates = 
-            undefined
+              d' :: Nearest BBox3 a
+              d' = nearest (calcDist qbox leaf)
+              isLess :: Scalar -> Nearest BBox3 a -> Bool
+              isLess d1 (Left _) = False -- should never happen
+              isLess d1 (Right Nothing) = True -- should never happen
+              isLess d1 (Right (Just ((d2,_,_):_))) = d1 < d2
+          
+          verify qbox (KdNode left node_bbox _ overlap right) candidates@(x:_) =
+            case (evaluateDistanceFromNode x qbox node_bbox) of
+              True -> Right $ Just candidates -- orig list is closer
+              False -> 
+                mergeResults (nearest (calcDist qbox overlap)) mergeTraversals
+            where
+              mergeTraversals = mergeResults verifyLeft verifyRight
+              verifyLeft      = (verify qbox left candidates)
+              verifyRight     = (verify qbox right candidates)
+
   -- | toBox builds a list of BBox3 given vector and an offset   
   toBBox :: [(Vector3,BBoxOffset,a)] -> [(BBox3,a)]
   toBBox [] = []

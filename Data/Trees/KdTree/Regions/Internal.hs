@@ -56,7 +56,7 @@ class ( BoundingBox bbox, Vector vect) =>
 
   boxAxisDistance :: Axes bbox -> bbox -> bbox -> Scalar
   -- | SplitRange splits a range on a given axis
-  splitRange :: vect -> Axes bbox -> bbox -> (R.Range, R.Range)
+  splitRange :: (bbox -> R.Range) -> Scalar -> bbox -> (R.Range, R.Range)
   -- | SplitBox splits a node's bounding box along a given axis, at the split
   splitBox :: vect -> Axes bbox -> bbox -> (bbox,bbox)
   -- | bbis is a Bounding Box of Infinite Space
