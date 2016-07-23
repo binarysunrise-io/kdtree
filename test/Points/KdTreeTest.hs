@@ -62,6 +62,6 @@ prop_removePreservesInvariant points pKill =
     allSubtreesAreValid $ tree `Kd.remove` pKill
     where tree = Kd.fromList points
 
-return []
-main = $quickCheckAll
+-- return []
+-- main = $quickCheckAll
 

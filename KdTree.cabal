@@ -26,6 +26,7 @@ source-repository head
   location: git@github.com:ijt/kdtree.git
 
 Library
+  ghc-options: -ddump-deriv
   Exposed-modules: Data.Trees.KdTree.Points.KdTree
                  , Data.Trees.KdTree.Regions.Internal
                  , Data.Trees.KdTree.Regions.KThree.KThreeTree
