@@ -13,6 +13,7 @@
 
 import Test.Hspec (hspec)
 import Points.KdTree
+import Regions.Internal
 
 main = do
   hspec propConstructionTests

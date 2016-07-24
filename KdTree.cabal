@@ -49,8 +49,12 @@ Test-suite KdTreeTest
                   , Points.Internal
                   , Points.KdTree
                   , Points.KdTreeTest
+                  , Regions.Internal
   default-language: Haskell2010
   Build-depends:    base >= 4.8 && < 5
                   , hspec == 2.2.3
                   , QuickCheck
+                  , AC-Vector
+                  , AC-Vector-Fancy
+                  , semigroups
   

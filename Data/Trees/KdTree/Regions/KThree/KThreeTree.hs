@@ -14,7 +14,12 @@
 
 {-# LANGUAGE DeriveFoldable, ScopedTypeVariables, Trustworthy, FlexibleContexts,TypeFamilies, TypeSynonymInstances, InstanceSigs, ViewPatterns, FlexibleInstances, DeriveFunctor #-}
 
-module Data.Trees.KdTree.Regions.KThree.KThreeTree where
+module Data.Trees.KdTree.Regions.KThree.KThreeTree 
+  ( KdTreeRegional (..)
+  , KdTree         (..)
+  , Leaf           (..)
+  , Axes           (..)
+  )  where
 
 import Data.Maybe
 import Data.Bool
@@ -45,7 +50,6 @@ leafSize = 18
 
 -- | 3-D Tree. Needs own module
 instance KdTreeRegional BBox3 where
---  type Payload Int = Int
   type Vect BBox3 = Vector3
   type Nearest BBox3 a = Either (Collisions BBox3 a) (Maybe [(Scalar,BBox3, a)])
   data Axes BBox3 = X AxisX | Y AxisY | Z AxisZ deriving Show
@@ -58,14 +62,14 @@ instance KdTreeRegional BBox3 where
       , kdRight    :: KdTree BBox3 a 
       }
     | KdLeaf (Maybe (Leaf BBox3 a))
-    deriving (Foldable,Functor,Show)
+    
 
   data Collisions BBox3 a = Collisions [(BBox3,a)] deriving (Functor,Show)
 
   data Leaf BBox3 a = Leaf {
          leafBBox :: BBox3
        , kdleaf   :: [(BBox3, a)] 
-       } deriving (Foldable,Functor,Show)
+       } deriving (F.Foldable)
 
   -- | splitBox splits boundary box along an axis
   splitBox :: Vect BBox3 -> Axes BBox3 -> BBox3 -> (BBox3, BBox3)
@@ -125,10 +129,13 @@ instance KdTreeRegional BBox3 where
           nwu = Vector3 (x - offset) (y + offset) (z + offset)
           sed = Vector3 (x + offset) (y - offset) (z - offset)
 
---  toList :: KdTree BBox3 a -> [(BBox3,a)]
---  toList t = F.foldr (:) [] t
-  -- | fromList starts with an infinite bounding box
-  --            
+  toList :: KdTree BBox3 a -> [(BBox3,a)]
+  toList (KdLeaf Nothing) = []
+  toList (KdLeaf (Just leaf)) = kdleaf leaf
+  toList node = 
+    toList (kdLeft node) ++ toList (kdRight node) ++ overlapped node
+-- | fromList starts with an infinite bounding box
+              
   fromList :: [(BBox3,a)] -> KdTree BBox3 a 
   fromList [] = KdLeaf Nothing
   fromList aList = fromSubList bbis aList (X AxisX)
@@ -223,6 +230,7 @@ traverseBranch _ (KdLeaf (Just(Leaf leaf_bbox leaf))) qbox =
     _      -> Right Nothing
   where
     candidates = (nearest (calcDist qbox leaf))
+
 traverseBranch branch node@(KdNode left node_bbox _ overlap right) qbox =
   case (isect qbox node_bbox) of
     Just _ -> intersected
@@ -231,7 +239,7 @@ traverseBranch branch node@(KdNode left node_bbox _ overlap right) qbox =
     intersected = case candidates of
       Left cand         -> Left cand
       Right (Just cand) -> verify qbox nextBranch cand
-      Right _           -> Right Nothing
+      _           -> Right Nothing
     candidates = 
       mergeResults (nearest (calcDist qbox overlap)) $
       mergeResults (nearestNeighbor left qbox) 
@@ -321,4 +329,16 @@ attrib_value :: Axes BBox3 -> Vect BBox3 -> Scalar
 attrib_value (X AxisX) vect = get_coord AxisX vect
 attrib_value (Y AxisY) vect = get_coord AxisY vect
 attrib_value (Z AxisZ) vect = get_coord AxisZ vect
+
+{-
+    data KdTree BBox3 a
+    = KdNode {
+        kdLeft     :: KdTree BBox3 a
+      , nodeBBox   :: BBox3
+      , kdSplit    :: (Axes BBox3,Scalar)
+      , overlapped :: [(BBox3, a)] -- can't get Region right
+      , kdRight    :: KdTree BBox3 a 
+      }
+    | KdLeaf (Maybe (Leaf BBox3 a))
+-}
 

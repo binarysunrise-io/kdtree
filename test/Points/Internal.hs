@@ -1,5 +1,5 @@
 {- |
-   Module     : Points.KdTree
+   Module     : Points.Internal
    Copyright  : Copyright (c) 2011 Issac Trotts
    License    : see LICENSE
                        
