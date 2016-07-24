@@ -18,7 +18,7 @@ Maintainer:          issac.trotts@gmail.com
 Copyright:           Copyright 2011, Issac Trotts
 Category:            Graphics
 Build-type:          Simple
-Cabal-version:       >=1.6
+Cabal-version:       >=1.10
 Extra-source-files:  README
 
 source-repository head
@@ -26,10 +26,38 @@ source-repository head
   location: git@github.com:ijt/kdtree.git
 
 Library
-  Exposed-modules: Data.Trees.KdTree
-  Build-depends: base < 5
-  
-Executable KdTreeTest
-  Main-is: KdTreeTest.hs
-  Build-depends: QuickCheck
+  ghc-options: -ddump-deriv
+  Exposed-modules: Data.Trees.KdTree.Points.KdTree
+                 , Data.Trees.KdTree.Regions.Internal
+                 , Data.Trees.KdTree.Regions.KThree.KThreeTree
 
+  Other-modules: Data.Trees.KdTree.Points.Internal
+  default-language: Haskell2010
+  Build-depends: base < 5
+               , AC-Vector
+               , AC-Vector-Fancy
+               , semigroups
+               , random
+               , random-shuffle
+              
+  
+Test-suite KdTreeTest
+  Type:             exitcode-stdio-1.0
+  hs-source-dirs:   .,Data, test
+  Main-is:          Main.hs
+  Other-modules:    Data.Trees.KdTree.Points.Internal
+                  , Points.Internal
+                  , Points.KdTree
+                  , Points.KdTreeTest
+                  , Regions.Internal
+                  , Regions.KdTreeTests
+                  , Regions.KdTree
+
+  default-language: Haskell2010
+  Build-depends:    base >= 4.8 && < 5
+                  , hspec == 2.2.3
+                  , QuickCheck
+                  , AC-Vector
+                  , AC-Vector-Fancy
+                  , semigroups
+  
