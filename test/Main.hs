@@ -14,9 +14,12 @@
 import Test.Hspec (hspec)
 import Points.KdTree
 import Regions.Internal
+import Regions.KdTreeTests
+import Regions.KdTree
 
 main = do
   hspec propConstructionTests
   hspec propNearestNeighbor
   hspec propRemove
+  hspec propConstructionRegionTests
 

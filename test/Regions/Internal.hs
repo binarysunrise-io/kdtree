@@ -12,7 +12,7 @@
    Data/Trees/KdTree/Points/KdTree.hs. 
 
 -}
-module Regions.Internal (isValidK3) where
+module Regions.Internal (allSubtreesAreValid) where
 import Test.QuickCheck
 import qualified Data.BoundingBox.Range as R
 import Data.Vector.Fancy
@@ -20,6 +20,7 @@ import Data.Vector.V3
 import Data.Vector.Class
 import Data.BoundingBox hiding (isect)
 import Data.BoundingBox.B3
+import Test.QuickCheck.Arbitrary
 import Data.Trees.KdTree.Regions.Internal (Branch (..))
 import Data.Trees.KdTree.Regions.KThree.KThreeTree
 
@@ -62,19 +63,22 @@ inequalityTest find_endpoint inequality_test range_f bbox' =
 
 allSubtreesAreValid :: KdTree BBox3 a -> Bool
 allSubtreesAreValid (KdLeaf _) = True -- Degenerate cases
-allSubtreesAreValid k = all (subtreeIsValid) $ subtrees k
+allSubtreesAreValid (KdNode l node_bbox (axisb3, attrib) overlaps r) =
+  overlapsAreGood && leftsAreGood && rightsAreGood
   where
-    subtreeIsValid (KdNode l node_bbox (axisb3, attrib) overlaps r) =
-      overlapsAreGood && leftsAreGood && rightsAreGood
-      where
-        overlapsAreGood = all (intersects node_bbox) overlaps
-        intersects node_bbox (test_box,_) = case (isect node_bbox test_box) of
-          Just _  -> True
-          Nothing -> False
-        leftsAreGood    = isValidK3 (Just BLeft) axisb3 attrib l
-        rightsAreGood   = isValidK3 (Just BRight) axisb3 attrib r
-  
+    overlapsAreGood = all (intersects node_bbox) overlaps
+    leftsAreGood    = isValidK3 (Just BLeft) axisb3 attrib l
+    rightsAreGood   = isValidK3 (Just BRight) axisb3 attrib r
+    intersects node_bbox (test_box,_) = case (isect node_bbox test_box) of
+      Just _  -> True
+      Nothing -> False
   
 subtrees :: KdTree BBox3 a -> [KdTree BBox3 a]
 subtrees k@(KdLeaf _) = [k]
-subtrees k@(KdNode l _ _ _ r) = subtrees l ++ [k] ++ subtrees r    
+subtrees k@(KdNode l _ _ _ r) = subtrees l ++ [k] ++ subtrees r
+
+instance Arbitrary Vector3 where
+  arbitrary = do x <- arbitrary
+                 y <- arbitrary
+                 z <- arbitrary
+                 return $ Vector3 x y z    

@@ -50,6 +50,9 @@ Test-suite KdTreeTest
                   , Points.KdTree
                   , Points.KdTreeTest
                   , Regions.Internal
+                  , Regions.KdTreeTests
+                  , Regions.KdTree
+
   default-language: Haskell2010
   Build-depends:    base >= 4.8 && < 5
                   , hspec == 2.2.3
