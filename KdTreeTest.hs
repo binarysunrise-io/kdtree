@@ -2,13 +2,13 @@
 
 module Main where
 
-import Data.Maybe
-import qualified Data.List as L
+import qualified Data.List           as L
+import           Data.Maybe
 
-import Test.QuickCheck
-import Test.QuickCheck.All
+import           Test.QuickCheck
+import           Test.QuickCheck.All
 
-import qualified Data.Trees.KdTree as Kd
+import qualified Data.Trees.KdTree   as Kd
 
 prop_constructionProducesValidTrees :: [Kd.Point3d] -> Bool
 prop_constructionProducesValidTrees points =
@@ -20,7 +20,7 @@ prop_samePoints points =
 
 prop_nearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Bool
 prop_nearestNeighbor points probe =
-    Kd.nearestNeighbor tree probe == bruteNearestNeighbor points probe 
+    Kd.nearestNeighbor tree probe == bruteNearestNeighbor points probe
     where tree = Kd.fromList points
           bruteNearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Maybe Kd.Point3d
           bruteNearestNeighbor [] _ = Nothing

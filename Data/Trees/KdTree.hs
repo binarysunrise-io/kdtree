@@ -2,11 +2,11 @@
 
 module Data.Trees.KdTree where
 
-import Data.Maybe
+import           Data.Maybe
 
-import qualified Data.Foldable as F
-import qualified Data.List as L
-import Test.QuickCheck
+import qualified Data.Foldable   as F
+import qualified Data.List       as L
+import           Test.QuickCheck
 
 class Point p where
       -- |dimension returns the number of coordinates of a point.
@@ -35,15 +35,17 @@ instance Point Point3d where
     coord 2 p = p3z p
 
 
-data KdTree point = KdNode { kdLeft :: KdTree point,
-                             kdPoint :: point,
-                             kdRight :: KdTree point,
-                             kdAxis :: Int }
-                  | KdEmpty
-     deriving (Eq, Ord, Show)
+data KdTree point =
+    KdNode {
+        kdLeft  :: KdTree point,
+        kdPoint :: point,
+        kdRight :: KdTree point,
+        kdAxis  :: Int
+    }
+    | KdEmpty deriving (Eq, Ord, Show)
 
 instance Functor KdTree where
-    fmap _ KdEmpty = KdEmpty
+    fmap _ KdEmpty             = KdEmpty
     fmap f (KdNode l x r axis) = KdNode (fmap f l) (f x) (fmap f r) axis
 
 instance F.Foldable KdTree where
@@ -60,18 +62,18 @@ fromList points = fromListWithDepth points 0
 fromListWithDepth :: Point p => [p] -> Int -> KdTree p
 fromListWithDepth [] _ = KdEmpty
 fromListWithDepth points depth = node
-    where axis = depth `mod` dimension (head points) 
+    where axis = depth `mod` dimension (head points)
 
           -- Sort point list and choose median as pivot element
           sortedPoints =
               L.sortBy (\a b -> coord axis a `compare` coord axis b) points
           medianIndex = length sortedPoints `div` 2
           medianCoordinate = coord axis (sortedPoints !! medianIndex)
-          
+
           leftPoints = filter (\p -> coord axis p < medianCoordinate) sortedPoints
           trueMedianIndex = length leftPoints
           rightPoints = drop (trueMedianIndex+1) sortedPoints
-        
+
           -- Create node and construct subtrees
           node = KdNode { kdLeft  = fromListWithDepth leftPoints (depth+1),
                           kdPoint = sortedPoints !! trueMedianIndex,
@@ -84,7 +86,7 @@ toList t = F.foldr (:) [] t
 -- |subtrees t returns a list containing t and all its subtrees, including the
 -- empty leaf nodes.
 subtrees :: KdTree p -> [KdTree p]
-subtrees KdEmpty = [KdEmpty]
+subtrees KdEmpty               = [KdEmpty]
 subtrees t@(KdNode l x r axis) = subtrees l ++ [t] ++ subtrees r
 
 -- |nearestNeighbor tree p returns the nearest neighbor of p in tree.
