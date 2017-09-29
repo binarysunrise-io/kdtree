@@ -66,12 +66,17 @@ fromListWithDepth points depth = node
           sortedPoints =
               L.sortBy (\a b -> coord axis a `compare` coord axis b) points
           medianIndex = length sortedPoints `div` 2
+          medianCoordinate = coord axis (sortedPoints !! medianIndex)
+          
+          leftPoints = filter (\p -> coord axis p < medianCoordinate) sortedPoints
+          trueMedianIndex = length leftPoints
+          rightPoints = drop (trueMedianIndex+1) sortedPoints
         
           -- Create node and construct subtrees
-          node = KdNode { kdLeft = fromListWithDepth (take medianIndex sortedPoints) (depth+1),
-                          kdPoint = sortedPoints !! medianIndex,
-                          kdRight = fromListWithDepth (drop (medianIndex+1) sortedPoints) (depth+1),
-                          kdAxis = axis }
+          node = KdNode { kdLeft  = fromListWithDepth leftPoints (depth+1),
+                          kdPoint = sortedPoints !! trueMedianIndex,
+                          kdRight = fromListWithDepth rightPoints (depth+1),
+                          kdAxis  = axis }
 
 toList :: KdTree p -> [p]
 toList t = F.foldr (:) [] t
@@ -86,18 +91,18 @@ subtrees t@(KdNode l x r axis) = subtrees l ++ [t] ++ subtrees r
 nearestNeighbor :: Point p => KdTree p -> p -> Maybe p
 nearestNeighbor KdEmpty probe = Nothing
 nearestNeighbor (KdNode KdEmpty p KdEmpty _) probe = Just p
-nearestNeighbor (KdNode l p r axis) probe =
-    if xProbe <= xp then findNearest l r else findNearest r l
+nearestNeighbor (KdNode l pivot r axis) probe =
+    if xProbe < xPivot then findNearest l r else findNearest r l
     where xProbe = coord axis probe
-          xp = coord axis p
+          xPivot = coord axis pivot
           findNearest tree1 tree2 =
-                let candidates1 = case nearestNeighbor tree1 probe of
-                                    Nothing -> [p]
-                                    Just best1 -> [best1, p]
-                    sphereIntersectsPlane = (xProbe - xp)^2 <= dist2 probe p
+                let candidate1 = case nearestNeighbor tree1 probe of
+                                   Nothing   -> pivot
+                                   Just best -> L.minimumBy (compareDistance probe) [best, pivot]
+                    sphereIntersectsPlane = (xProbe - xPivot)^2 <= dist2 probe candidate1
                     candidates2 = if sphereIntersectsPlane
-                                    then candidates1 ++ maybeToList (nearestNeighbor tree2 probe)
-                                    else candidates1 in
+                                    then [candidate1] ++ maybeToList (nearestNeighbor tree2 probe)
+                                    else [candidate1] in
                 Just . L.minimumBy (compareDistance probe) $ candidates2
 
 -- |nearNeighbors tree p returns all neighbors within distance r from p in tree.
