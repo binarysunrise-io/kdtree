@@ -11,8 +11,7 @@ import           Test.QuickCheck.All
 import qualified Data.Trees.KdTree   as Kd
 
 prop_constructionProducesValidTrees :: [Kd.Point3d] -> Bool
-prop_constructionProducesValidTrees points =
-    Kd.allSubtreesAreValid . Kd.fromList $ points
+prop_constructionProducesValidTrees = Kd.allSubtreesAreValid . Kd.fromList
 
 prop_samePoints :: [Kd.Point3d] -> Bool
 prop_samePoints points =
@@ -25,12 +24,12 @@ prop_nearestNeighbor points probe =
           bruteNearestNeighbor :: [Kd.Point3d] -> Kd.Point3d -> Maybe Kd.Point3d
           bruteNearestNeighbor [] _ = Nothing
           bruteNearestNeighbor points probe =
-              Just . head . L.sortBy (Kd.compareDistance probe) $ points
+              Just . L.minimumBy (Kd.compareDistance probe) $ points
 
 prop_nearNeighbors :: [Kd.Point3d] -> Kd.Point3d -> Double -> Bool
 prop_nearNeighbors points probe radius =
-    (L.sort (Kd.nearNeighbors   tree   radius probe) ==
-     L.sort (bruteNearNeighbors points radius probe))
+    L.sort (Kd.nearNeighbors   tree   radius probe) ==
+     L.sort (bruteNearNeighbors points radius probe)
     where tree = Kd.fromList points
           bruteNearNeighbors :: [Kd.Point3d] -> Double -> Kd.Point3d -> [Kd.Point3d]
           bruteNearNeighbors []     radius _     = []
@@ -52,7 +51,7 @@ prop_kNearestNeighborsMatchesBrute points k p =
 
 prop_removeReallyRemovesPoints :: [Kd.Point3d] -> Property
 prop_removeReallyRemovesPoints points = points /= [] ==>
-    L.sort (Kd.toList (tree `Kd.remove` (head points))) == L.sort (tail points)
+    L.sort (Kd.toList (tree `Kd.remove` head points)) == L.sort (tail points)
     where tree = Kd.fromList points
 
 prop_removePreservesInvariant :: [Kd.Point3d] -> Kd.Point3d -> Bool

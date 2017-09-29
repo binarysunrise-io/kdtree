@@ -81,7 +81,7 @@ fromListWithDepth points depth = node
                           kdAxis  = axis }
 
 toList :: KdTree p -> [p]
-toList t = F.foldr (:) [] t
+toList = F.foldr (:) []
 
 -- |subtrees t returns a list containing t and all its subtrees, including the
 -- empty leaf nodes.
@@ -103,14 +103,14 @@ nearestNeighbor (KdNode l pivot r axis) probe =
                                    Just best -> L.minimumBy (compareDistance probe) [best, pivot]
                     sphereIntersectsPlane = (xProbe - xPivot)^2 <= dist2 probe candidate1
                     candidates2 = if sphereIntersectsPlane
-                                    then [candidate1] ++ maybeToList (nearestNeighbor tree2 probe)
+                                    then candidate1 : maybeToList (nearestNeighbor tree2 probe)
                                     else [candidate1] in
                 Just . L.minimumBy (compareDistance probe) $ candidates2
 
 -- |nearNeighbors tree p returns all neighbors within distance r from p in tree.
 nearNeighbors :: Point p => KdTree p -> Double -> p -> [p]
 nearNeighbors KdEmpty radius probe                      = []
-nearNeighbors (KdNode KdEmpty p KdEmpty _) radius probe = if dist2 p probe <= radius^2 then [p] else []
+nearNeighbors (KdNode KdEmpty p KdEmpty _) radius probe = [p | dist2 p probe <= radius^2]
 nearNeighbors (KdNode l p r axis) radius probe          =
     if xProbe <= xp
       then let nearest = maybePivot ++ nearNeighbors l radius probe
@@ -123,7 +123,7 @@ nearNeighbors (KdNode l p r axis) radius probe          =
                 else nearest
   where xProbe     = coord axis probe
         xp         = coord axis p
-        maybePivot = if dist2 probe p <= radius^2 then [p] else []
+        maybePivot = [p | dist2 probe p <= radius^2]
 
 -- |isValid tells whether the K-D tree property holds for a given tree.
 -- Specifically, it tests that all points in the left subtree lie to the left
@@ -152,12 +152,10 @@ kNearestNeighbors tree k probe = nearest : kNearestNeighbors tree' (k-1) probe
 -- |remove t p removes the point p from t.
 remove :: (Eq p, Point p) => KdTree p -> p -> KdTree p
 remove KdEmpty _ = KdEmpty
-remove (KdNode l p r axis) pKill =
-    if p == pKill
-        then fromListWithDepth (toList l ++ toList r) axis
-        else if coord axis pKill <= coord axis p
-                then KdNode (remove l pKill) p r axis
-                else KdNode l p (remove r pKill) axis
+remove (KdNode l p r axis) pKill
+  | p == pKill = fromListWithDepth (toList l ++ toList r) axis
+  | coord axis pKill <= coord axis p = KdNode (remove l pKill) p r axis
+  | otherwise = KdNode l p (remove r pKill) axis
 
 instance Arbitrary Point3d where
     arbitrary = do
