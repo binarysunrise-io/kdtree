@@ -154,7 +154,6 @@ remove :: (Eq p, Point p) => KdTree p -> p -> KdTree p
 remove KdEmpty _ = KdEmpty
 remove (KdNode l p r axis) pKill
   | p == pKill = fromListWithDepth (toList l ++ toList r) axis
- -- | coord axis pKill == coord axis p = KdNode (remove l pKill) p (remove r pKill) axis
   | coord axis pKill < coord axis p = KdNode (remove l pKill) p r axis
   | otherwise = KdNode l p (remove r pKill) axis
 
