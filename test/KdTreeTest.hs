@@ -63,10 +63,10 @@ prop_removeEdgeTest::Int->Bool
 prop_removeEdgeTest dummy = ret
   where
     a = Kd.Point3d 2 2 2
-    b = Kd.Point3d 3 3 3 --Change this line to Kd.Point3d 3 3 3,Kd.remove will work.
+    b = Kd.Point3d 2 3 3 --Change this line to Kd.Point3d 3 3 3,Kd.remove will work.
     kdTree = Kd.fromList [a,b]
     ret = ((Kd.remove kdTree b) /= kdTree)--return if Kd.remove works.
 
 return []
-main =   $quickCheckAll
+main =  $quickCheckAll
 
