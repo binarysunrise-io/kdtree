@@ -60,7 +60,7 @@ prop_removePreservesInvariant points pKill =
     where tree = Kd.fromList points
 
 prop_removeEdgeTest:: Int -> Bool
-prop_removeEdgeTest dummy = ret
+prop_removeEdgeTest _ = ret
   where
     a = Kd.Point3d 2 2 2
     b = Kd.Point3d 2 3 3 --Change this line to Kd.Point3d 3 3 3,Kd.remove will work.
